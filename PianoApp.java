@@ -38,7 +38,7 @@ public class PianoApp {
 
     public static void main(String[] args) throws IOException {
         String serverIP = JOptionPane.showInputDialog("Enter server IP:", "localhost");
-        String portStr = JOptionPane.showInputDialog("Enter port:", "5000");
+        String portStr = JOptionPane.showInputDialog("Enter port:", "5190");
         socket = new Socket(serverIP, Integer.parseInt(portStr));
         out = new PrintWriter(socket.getOutputStream(), true);
         new Thread(PianoApp::listenForMessages).start();
