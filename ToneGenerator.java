@@ -1,6 +1,6 @@
-import javax.sound.sampled.*;
 import java.util.HashMap;
 import java.util.Map;
+import javax.sound.sampled.*;
 
 public class ToneGenerator {
     private static final float SAMPLE_RATE = 44100f;
@@ -57,6 +57,7 @@ public class ToneGenerator {
     private static byte[] generateWaveform(double freq, int durationMs, String timbre) {
         int numSamples = durationMs * (int) SAMPLE_RATE / 1000;
         byte[] buffer = new byte[2 * numSamples];
+        double volume = 0.5; // Set volume to 50%
 
         for (int i = 0; i < numSamples; i++) {
             double angle = 2.0 * Math.PI * i * freq / SAMPLE_RATE;
@@ -74,6 +75,7 @@ public class ToneGenerator {
                 default:
                     wave = Math.sin(angle); // default sine
             }
+            wave *= volume; // Apply volume
             short sample = (short) (wave * Short.MAX_VALUE);
             buffer[2 * i] = (byte) (sample & 0xff);
             buffer[2 * i + 1] = (byte) ((sample >> 8) & 0xff);

@@ -111,7 +111,7 @@ public class PianoApp {
         changeTimbreBtn.addActionListener(e-> {
             String[] timbres = {"sine", "square", "sawtooth", "triangle"};
             String selectedTimbre = (String) JOptionPane.showInputDialog(frame, "Select Timbre:", "Timbre Selection",
-                    JOptionPane.PLAIN_MESSAGE, null, timbres, timbres[0]);
+                    JOptionPane.PLAIN_MESSAGE, null, timbres, TIMBRE);
             if (selectedTimbre != null) {
                 TIMBRE = selectedTimbre;
             }
@@ -203,10 +203,11 @@ public class PianoApp {
                     double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
                     if (freq > 0) {
                         if (type.equals("NOTE_ON")) {
-                            ToneGenerator.playTone(freq, 200, timbre);
+                            ToneGenerator.playToneContinuous(freq, note, timbre);
                             JButton key = keyButtons.get(note);
                             if (key != null) key.setBackground(Color.YELLOW);
                         } else if (type.equals("NOTE_OFF")) {
+                            ToneGenerator.stopTone(note);
                             JButton key = keyButtons.get(note);
                             if (key != null) key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
                         }
@@ -243,16 +244,17 @@ public class PianoApp {
                     Thread.sleep(delay);
                 } catch (InterruptedException ignored) {}
             }
-            ToneGenerator.playTone(WHITE_KEYS.getOrDefault(note, BLACK_KEYS.get(note)), (int) (end - start), timbre);
+            ToneGenerator.playToneContinuous(WHITE_KEYS.getOrDefault(note, BLACK_KEYS.get(note)), note, timbre);
             JButton key = keyButtons.get(note);
             if (key != null) {
                 key.setBackground(Color.YELLOW);
                 javax.swing.Timer timer = new javax.swing.Timer((int) (end - start), e -> {
                     key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
+                    ToneGenerator.stopTone(note);
                 });
                 timer.setRepeats(false);
                 timer.start();
-            }
+}
         }
     }
 }
