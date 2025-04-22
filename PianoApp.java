@@ -11,7 +11,7 @@ public class PianoApp {
     private static final java.util.Map<String, JButton> keyButtons = new java.util.HashMap<>();
     private static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
-    private static final String TIMBRE = "sine";
+    private static  String TIMBRE = "sine";
 
     private static Socket socket;
     private static PrintWriter out;
@@ -43,7 +43,7 @@ public class PianoApp {
         out = new PrintWriter(socket.getOutputStream(), true);
         new Thread(PianoApp::listenForMessages).start();
 
-        JFrame frame = new JFrame("Network Piano 🎹");
+        JFrame frame = new JFrame("Cooperating Piano 🎹");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(1300, 430);
         frame.setResizable(false);
@@ -54,11 +54,13 @@ public class PianoApp {
         JButton stopBtn = new JButton("⏹ Stop Recording");
         JButton saveBtn = new JButton("💾 Save Recording");
         JButton loadBtn = new JButton("📂 Load & Play");
+        JButton changeTimbreBtn = new JButton("Timbre Selection");
 
         controlPanel.add(recordBtn);
         controlPanel.add(stopBtn);
         controlPanel.add(saveBtn);
         controlPanel.add(loadBtn);
+        controlPanel.add(changeTimbreBtn);
         frame.add(controlPanel, BorderLayout.NORTH);
 
         stopBtn.setEnabled(false);
@@ -105,6 +107,16 @@ public class PianoApp {
                 new Thread(() -> playFromFile(file)).start();
             }
         });
+
+        changeTimbreBtn.addActionListener(e-> {
+            String[] timbres = {"sine", "square", "sawtooth", "triangle"};
+            String selectedTimbre = (String) JOptionPane.showInputDialog(frame, "Select Timbre:", "Timbre Selection",
+                    JOptionPane.PLAIN_MESSAGE, null, timbres, timbres[0]);
+            if (selectedTimbre != null) {
+                TIMBRE = selectedTimbre;
+            }
+        });
+
 
         JLayeredPane layeredPane = new JLayeredPane();
         layeredPane.setPreferredSize(new Dimension(WHITE_KEYS.size() * 60, 300));
