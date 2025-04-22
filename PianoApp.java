@@ -2,6 +2,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.net.*;
+import java.util.UUID;
 import java.util.concurrent.*;
 import javax.swing.*;
 
@@ -12,8 +13,9 @@ public class PianoApp {
     private static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
     private static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
-    private static String TIMBRE = "sine";
+    private static final String CLIENT_ID = UUID.randomUUID().toString();
 
+    private static String TIMBRE = "sine";
     private static Socket socket;
     private static PrintWriter out;
     private static ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
@@ -204,7 +206,7 @@ public class PianoApp {
 
     private static void sendMessage(String msg) {
         networkExecutor.submit(() -> {
-            if (out != null) out.println(msg);
+            if (out != null) out.println(CLIENT_ID + "," + msg);
         });
     }
 
@@ -213,8 +215,14 @@ public class PianoApp {
             String line;
             while ((line = in.readLine()) != null) {
                 String[] parts = line.split(",");
-                if (parts.length >= 3) {
-                    String type = parts[0], note = parts[1], timbre = parts[2];
+                if (parts.length >= 4) {
+                    String senderId = parts[0];
+                    String type = parts[1];
+                    String note = parts[2];
+                    String timbre = parts[3];
+
+                    if (senderId.equals(CLIENT_ID)) continue;
+
                     double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
                     if (freq > 0) {
                         if (type.equals("NOTE_ON")) {
@@ -247,7 +255,7 @@ public class PianoApp {
     private static void playFromFile(File file) {
         java.util.List<String[]> notes = new java.util.ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            reader.readLine(); // skip header
+            String header = reader.readLine(); // skip header
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
