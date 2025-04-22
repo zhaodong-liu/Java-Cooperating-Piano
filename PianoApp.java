@@ -11,7 +11,8 @@ public class PianoApp {
     private static final java.util.Map<String, JButton> keyButtons = new java.util.HashMap<>();
     private static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
-    private static  String TIMBRE = "sine";
+    private static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
+    private static String TIMBRE = "sine";
 
     private static Socket socket;
     private static PrintWriter out;
@@ -117,7 +118,6 @@ public class PianoApp {
             }
         });
 
-
         JLayeredPane layeredPane = new JLayeredPane();
         layeredPane.setPreferredSize(new Dimension(WHITE_KEYS.size() * 60, 300));
 
@@ -160,26 +160,41 @@ public class PianoApp {
 
         key.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) {
-                ToneGenerator.playToneContinuous(freq, note, TIMBRE);
+                int count = pressCount.getOrDefault(note, 0);
+                if (count == 0) {
+                    ToneGenerator.playToneContinuous(freq, note, TIMBRE);
+                }
+                pressCount.put(note, count + 1);
                 sendMessage("NOTE_ON," + note + "," + TIMBRE);
+
                 long now = System.currentTimeMillis();
                 if (isRecording) {
                     long offset = now - recordingStartTime;
                     rawEvents.add(new String[]{"NOTE_ON", note, String.valueOf(offset), TIMBRE});
                     activeNotes.put(note, offset);
                 }
+
                 key.setBackground(isBlack ? Color.GRAY : Color.CYAN);
             }
 
             public void mouseReleased(MouseEvent e) {
-                ToneGenerator.stopTone(note);
+                int count = pressCount.getOrDefault(note, 1) - 1;
+                if (count <= 0) {
+                    pressCount.remove(note);
+                    ToneGenerator.stopTone(note);
+                } else {
+                    pressCount.put(note, count);
+                }
+
                 sendMessage("NOTE_OFF," + note + "," + TIMBRE);
+
                 long now = System.currentTimeMillis();
                 if (isRecording && activeNotes.containsKey(note)) {
                     long offset = now - recordingStartTime;
                     rawEvents.add(new String[]{"NOTE_OFF", note, String.valueOf(offset), TIMBRE});
                     activeNotes.remove(note);
                 }
+
                 key.setBackground(isBlack ? Color.BLACK : Color.WHITE);
             }
         });
@@ -203,11 +218,21 @@ public class PianoApp {
                     double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
                     if (freq > 0) {
                         if (type.equals("NOTE_ON")) {
-                            ToneGenerator.playToneContinuous(freq, note, timbre);
+                            int count = pressCount.getOrDefault(note, 0);
+                            if (count == 0) {
+                                ToneGenerator.playToneContinuous(freq, note, timbre);
+                            }
+                            pressCount.put(note, count + 1);
                             JButton key = keyButtons.get(note);
                             if (key != null) key.setBackground(Color.YELLOW);
                         } else if (type.equals("NOTE_OFF")) {
-                            ToneGenerator.stopTone(note);
+                            int count = pressCount.getOrDefault(note, 1) - 1;
+                            if (count <= 0) {
+                                pressCount.remove(note);
+                                ToneGenerator.stopTone(note);
+                            } else {
+                                pressCount.put(note, count);
+                            }
                             JButton key = keyButtons.get(note);
                             if (key != null) key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
                         }
@@ -222,7 +247,7 @@ public class PianoApp {
     private static void playFromFile(File file) {
         java.util.List<String[]> notes = new java.util.ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String header = reader.readLine(); // skip header
+            reader.readLine(); // skip header
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
@@ -254,7 +279,7 @@ public class PianoApp {
                 });
                 timer.setRepeats(false);
                 timer.start();
-}
+            }
         }
     }
 }
