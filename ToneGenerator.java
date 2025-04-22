@@ -6,20 +6,6 @@ public class ToneGenerator {
     private static final float SAMPLE_RATE = 44100f;
     private static final Map<String, SourceDataLine> playingLines = new HashMap<>();
 
-    public static void playTone(double freq, int durationMs, String timbre) {
-        byte[] buffer = generateWaveform(freq, durationMs, timbre);
-        try {
-            AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
-            try (SourceDataLine line = AudioSystem.getSourceDataLine(format)) {
-                line.open(format);
-                line.start();
-                line.write(buffer, 0, buffer.length);
-                line.drain();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     public static void playToneContinuous(double freq, String key, String timbre) {
         Thread thread = new Thread(() -> {
