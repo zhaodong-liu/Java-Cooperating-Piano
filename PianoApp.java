@@ -18,9 +18,14 @@ public class PianoApp {
     private static String TIMBRE = "sine";
     private static Socket socket;
     private static PrintWriter out;
+    private static BufferedReader in;
     private static ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private static boolean isRecording = false;
     private static long recordingStartTime;
+    private static String username;
+
+    private static JTextArea chatArea;
+    private static JTextField chatInput;
 
     static {
         WHITE_KEYS.put("C4", 261.63);  WHITE_KEYS.put("D4", 293.66);  WHITE_KEYS.put("E4", 329.63);
@@ -42,15 +47,21 @@ public class PianoApp {
     public static void main(String[] args) throws IOException {
         String serverIP = JOptionPane.showInputDialog("Enter server IP:", "localhost");
         String portStr = JOptionPane.showInputDialog("Enter port:", "5190");
+        username = JOptionPane.showInputDialog("Enter your username:");
+
         socket = new Socket(serverIP, Integer.parseInt(portStr));
         out = new PrintWriter(socket.getOutputStream(), true);
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        out.println(username);
         new Thread(PianoApp::listenForMessages).start();
 
         JFrame frame = new JFrame("Cooperating Piano 🎹");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1300, 430);
+        frame.setSize(1400, 700);
         frame.setResizable(false);
         frame.setLayout(new BorderLayout());
+
+        JPanel topPanel = new JPanel(new GridLayout(1, 2));
 
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JButton recordBtn = new JButton("🎙 Start Recording");
@@ -58,13 +69,11 @@ public class PianoApp {
         JButton saveBtn = new JButton("💾 Save Recording");
         JButton loadBtn = new JButton("📂 Load & Play");
         JButton changeTimbreBtn = new JButton("Timbre Selection");
-
         controlPanel.add(recordBtn);
         controlPanel.add(stopBtn);
         controlPanel.add(saveBtn);
         controlPanel.add(loadBtn);
         controlPanel.add(changeTimbreBtn);
-        frame.add(controlPanel, BorderLayout.NORTH);
 
         stopBtn.setEnabled(false);
 
@@ -83,72 +92,26 @@ public class PianoApp {
             stopBtn.setEnabled(false);
         });
 
-        saveBtn.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
-                try (PrintWriter writer = new PrintWriter(chooser.getSelectedFile())) {
-                    writer.println("note,startTime,endTime,timbre");
-                    java.util.Map<String, String[]> noteMap = new java.util.HashMap<>();
-                    for (String[] evt : rawEvents) {
-                        if (evt[0].equals("NOTE_ON")) {
-                            noteMap.put(evt[1], evt);
-                        } else if (evt[0].equals("NOTE_OFF") && noteMap.containsKey(evt[1])) {
-                            String[] start = noteMap.remove(evt[1]);
-                            writer.println(evt[1] + "," + start[2] + "," + evt[2] + "," + evt[3]);
-                        }
-                    }
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-        });
+        saveBtn.addActionListener(e -> saveRecording());
+        loadBtn.addActionListener(e -> loadAndPlay());
+        changeTimbreBtn.addActionListener(e -> changeTimbre());
 
-        loadBtn.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                File file = chooser.getSelectedFile();
-                new Thread(() -> playFromFile(file)).start();
-            }
-        });
+        JPanel chatPanel = new JPanel(new BorderLayout());
+        chatArea = new JTextArea(8, 30);
+        chatArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(chatArea);
+        chatInput = new JTextField();
+        chatInput.addActionListener(e -> sendChat());
+        chatPanel.add(scrollPane, BorderLayout.CENTER);
+        chatPanel.add(chatInput, BorderLayout.SOUTH);
 
-        changeTimbreBtn.addActionListener(e-> {
-            String[] timbres = {"sine", "square", "sawtooth", "triangle"};
-            String selectedTimbre = (String) JOptionPane.showInputDialog(frame, "Select Timbre:", "Timbre Selection",
-                    JOptionPane.PLAIN_MESSAGE, null, timbres, TIMBRE);
-            if (selectedTimbre != null) {
-                TIMBRE = selectedTimbre;
-            }
-        });
+        topPanel.add(controlPanel);
+        topPanel.add(chatPanel);
 
-        JLayeredPane layeredPane = new JLayeredPane();
-        layeredPane.setPreferredSize(new Dimension(WHITE_KEYS.size() * 60, 300));
+        JLayeredPane layeredPane = createPiano();
 
-        int x = 0;
-        for (String note : WHITE_KEYS.keySet()) {
-            double freq = WHITE_KEYS.get(note);
-            JButton key = createKey(note, freq, false, x, 0, 60, 300);
-            layeredPane.add(key, JLayeredPane.DEFAULT_LAYER);
-            x += 60;
-        }
-
-        java.util.Map<String, Integer> blackOffsets = java.util.Map.ofEntries(
-            java.util.Map.entry("C#4", 0), java.util.Map.entry("D#4", 1), java.util.Map.entry("F#4", 3),
-            java.util.Map.entry("G#4", 4), java.util.Map.entry("A#4", 5), java.util.Map.entry("C#5", 7),
-            java.util.Map.entry("D#5", 8), java.util.Map.entry("F#5", 10), java.util.Map.entry("G#5", 11),
-            java.util.Map.entry("A#5", 12), java.util.Map.entry("C#6", 14), java.util.Map.entry("D#6", 15),
-            java.util.Map.entry("F#6", 17), java.util.Map.entry("G#6", 18), java.util.Map.entry("A#6", 19)
-        );
-
-        for (var entry : blackOffsets.entrySet()) {
-            String note = entry.getKey();
-            double freq = BLACK_KEYS.get(note);
-            int bx = (entry.getValue() + 1) * 60 - 20;
-            JButton key = createKey(note, freq, true, bx, 0, 40, 180);
-            layeredPane.add(key, JLayeredPane.PALETTE_LAYER);
-        }
-
+        frame.add(topPanel, BorderLayout.NORTH);
         frame.add(layeredPane, BorderLayout.CENTER);
-        frame.pack();
         frame.setVisible(true);
     }
 
@@ -204,46 +167,102 @@ public class PianoApp {
         return key;
     }
 
+    private static JLayeredPane createPiano() {
+        JLayeredPane layeredPane = new JLayeredPane();
+        layeredPane.setPreferredSize(new Dimension(WHITE_KEYS.size() * 60, 300));
+
+        int x = 0;
+        for (String note : WHITE_KEYS.keySet()) {
+            double freq = WHITE_KEYS.get(note);
+            JButton key = createKey(note, freq, false, x, 0, 60, 300);
+            layeredPane.add(key, JLayeredPane.DEFAULT_LAYER);
+            x += 60;
+        }
+
+        java.util.Map<String, Integer> blackOffsets = java.util.Map.ofEntries(
+            java.util.Map.entry("C#4", 0), java.util.Map.entry("D#4", 1), java.util.Map.entry("F#4", 3),
+            java.util.Map.entry("G#4", 4), java.util.Map.entry("A#4", 5), java.util.Map.entry("C#5", 7),
+            java.util.Map.entry("D#5", 8), java.util.Map.entry("F#5", 10), java.util.Map.entry("G#5", 11),
+            java.util.Map.entry("A#5", 12), java.util.Map.entry("C#6", 14), java.util.Map.entry("D#6", 15),
+            java.util.Map.entry("F#6", 17), java.util.Map.entry("G#6", 18), java.util.Map.entry("A#6", 19)
+        );
+
+        for (var entry : blackOffsets.entrySet()) {
+            String note = entry.getKey();
+            double freq = BLACK_KEYS.get(note);
+            int bx = (entry.getValue() + 1) * 60 - 20;
+            JButton key = createKey(note, freq, true, bx, 0, 40, 180);
+            layeredPane.add(key, JLayeredPane.PALETTE_LAYER);
+        }
+
+        return layeredPane;
+    }
+
+    private static void saveRecording() {
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+            try (PrintWriter writer = new PrintWriter(chooser.getSelectedFile())) {
+                writer.println("note,startTime,endTime,timbre");
+                java.util.Map<String, String[]> noteMap = new java.util.HashMap<>();
+                for (String[] evt : rawEvents) {
+                    if (evt[0].equals("NOTE_ON")) {
+                        noteMap.put(evt[1], evt);
+                    } else if (evt[0].equals("NOTE_OFF") && noteMap.containsKey(evt[1])) {
+                        String[] start = noteMap.remove(evt[1]);
+                        writer.println(evt[1] + "," + start[2] + "," + evt[2] + "," + evt[3]);
+                    }
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    private static void loadAndPlay() {
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+            File file = chooser.getSelectedFile();
+            new Thread(() -> playFromFile(file)).start();
+        }
+    }
+
+    private static void changeTimbre() {
+        String[] timbres = {"sine", "square", "sawtooth", "triangle"};
+        String selectedTimbre = (String) JOptionPane.showInputDialog(null, "Select Timbre:", "Timbre Selection",
+                JOptionPane.PLAIN_MESSAGE, null, timbres, TIMBRE);
+        if (selectedTimbre != null) {
+            TIMBRE = selectedTimbre;
+        }
+    }
+
     private static void sendMessage(String msg) {
         networkExecutor.submit(() -> {
-            if (out != null) out.println(CLIENT_ID + "," + msg);
+            if (out != null) out.println("MUSIC," + msg);
         });
     }
 
+    private static void sendChat() {
+        String text = chatInput.getText().trim();
+        if (!text.isEmpty()) {
+            out.println("CHAT," + text);
+            chatInput.setText("");
+        }
+    }
+
     private static void listenForMessages() {
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+        try {
             String line;
             while ((line = in.readLine()) != null) {
-                String[] parts = line.split(",");
-                if (parts.length >= 4) {
-                    String senderId = parts[0];
-                    String type = parts[1];
-                    String note = parts[2];
-                    String timbre = parts[3];
-
-                    if (senderId.equals(CLIENT_ID)) continue;
-
-                    double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
-                    if (freq > 0) {
-                        if (type.equals("NOTE_ON")) {
-                            int count = pressCount.getOrDefault(note, 0);
-                            if (count == 0) {
-                                ToneGenerator.playToneContinuous(freq, note, timbre);
-                            }
-                            pressCount.put(note, count + 1);
-                            JButton key = keyButtons.get(note);
-                            if (key != null) key.setBackground(Color.YELLOW);
-                        } else if (type.equals("NOTE_OFF")) {
-                            int count = pressCount.getOrDefault(note, 1) - 1;
-                            if (count <= 0) {
-                                pressCount.remove(note);
-                                ToneGenerator.stopTone(note);
-                            } else {
-                                pressCount.put(note, count);
-                            }
-                            JButton key = keyButtons.get(note);
-                            if (key != null) key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
-                        }
+                String[] parts = line.split(",", 2);
+                if (parts.length >= 2) {
+                    String category = parts[0];
+                    String content = parts[1];
+    
+                    if (category.equals("MUSIC")) {
+                        handleMusicMessage(content);
+                    } else if (category.equals("CHAT")) {
+                        chatArea.append(content + "\\n");
+                        chatArea.setCaretPosition(chatArea.getDocument().getLength());
                     }
                 }
             }
@@ -252,10 +271,42 @@ public class PianoApp {
         }
     }
 
+    private static void handleMusicMessage(String content) {
+        String[] parts = content.split(",");
+        if (parts.length >= 3) {
+            String type = parts[0];
+            String note = parts[1];
+            String timbre = parts[2];
+    
+            double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
+            if (freq > 0) {
+                if (type.equals("NOTE_ON")) {
+                    int count = pressCount.getOrDefault(note, 0);
+                    if (count == 0) {
+                        ToneGenerator.playToneContinuous(freq, note, timbre);
+                    }
+                    pressCount.put(note, count + 1);
+                    JButton key = keyButtons.get(note);
+                    if (key != null) key.setBackground(Color.YELLOW);
+                } else if (type.equals("NOTE_OFF")) {
+                    int count = pressCount.getOrDefault(note, 1) - 1;
+                    if (count <= 0) {
+                        pressCount.remove(note);
+                        ToneGenerator.stopTone(note);
+                    } else {
+                        pressCount.put(note, count);
+                    }
+                    JButton key = keyButtons.get(note);
+                    if (key != null) key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
+                }
+            }
+        }
+    }
+
     private static void playFromFile(File file) {
         java.util.List<String[]> notes = new java.util.ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String header = reader.readLine(); // skip header
+            String header = reader.readLine(); // Skip header
             String line;
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",");
@@ -264,30 +315,36 @@ public class PianoApp {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
+    
         long startTime = System.currentTimeMillis();
         for (String[] entry : notes) {
             String note = entry[0];
             long start = Long.parseLong(entry[1]);
             long end = Long.parseLong(entry[2]);
             String timbre = entry[3];
-            long delay = start - (System.currentTimeMillis() - startTime);
-            if (delay > 0) {
+    
+            new Thread(() -> {
                 try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException ignored) {}
-            }
-            ToneGenerator.playToneContinuous(WHITE_KEYS.getOrDefault(note, BLACK_KEYS.get(note)), note, timbre);
-            JButton key = keyButtons.get(note);
-            if (key != null) {
-                key.setBackground(Color.YELLOW);
-                javax.swing.Timer timer = new javax.swing.Timer((int) (end - start), e -> {
-                    key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
+                    long waitBeforeStart = start - (System.currentTimeMillis() - startTime);
+                    if (waitBeforeStart > 0) {
+                        Thread.sleep(waitBeforeStart);
+                    }
+                    double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
+                    if (freq > 0) {
+                        ToneGenerator.playToneContinuous(freq, note, timbre);
+                        JButton key = keyButtons.get(note);
+                        if (key != null) key.setBackground(Color.YELLOW);
+                    }
+    
+                    long duration = end - start;
+                    Thread.sleep(duration);
+    
                     ToneGenerator.stopTone(note);
-                });
-                timer.setRepeats(false);
-                timer.start();
-            }
+                    JButton key = keyButtons.get(note);
+                    if (key != null) key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
+                } catch (InterruptedException ignored) {}
+            }).start();
         }
     }
+
 }

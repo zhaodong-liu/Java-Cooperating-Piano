@@ -22,6 +22,7 @@ public class PianoServer {
         private Socket socket;
         private BufferedReader in;
         private PrintWriter out;
+        private String username = "Anonymous";
 
         public ClientHandler(Socket socket) throws IOException {
             this.socket = socket;
@@ -36,21 +37,44 @@ public class PianoServer {
         @Override
         public void run() {
             try {
+                // First message received should be the username
+                username = in.readLine();
+                broadcast("[System]: " + username + " has entered the room.");
+
                 String msg;
                 while ((msg = in.readLine()) != null) {
-                    for (ClientHandler client : clients) {
-                        if (client != this) {
-                            client.sendMessage(msg);
+                    String[] parts = msg.split(",", 2);
+                    if (parts.length >= 2) {
+                        String category = parts[0];
+                        String content = parts[1];
+
+                        if (category.equals("MUSIC")) {
+                            // MUSIC: send to all except the sender
+                            for (ClientHandler client : clients) {
+                                if (client != this) {
+                                    client.sendMessage("MUSIC," + content);
+                                }
+                            }
+                        } else if (category.equals("CHAT")) {
+                            // CHAT: send to everyone, username prepended
+                            broadcast(username + ": " + content);
                         }
                     }
                 }
             } catch (IOException e) {
                 System.out.println("Client disconnected.");
             } finally {
+                clients.remove(this);
+                broadcast("[System]: " + username + " has left the room.");
                 try {
                     socket.close();
                 } catch (IOException ignored) {}
-                clients.remove(this);
+            }
+        }
+
+        private void broadcast(String message) {
+            for (ClientHandler client : clients) {
+                client.sendMessage("CHAT," + message);
             }
         }
     }
