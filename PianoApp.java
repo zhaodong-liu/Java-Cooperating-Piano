@@ -63,7 +63,6 @@ public class PianoApp {
 
         JPanel topPanel = new JPanel(new GridLayout(1, 2));
 
-        // --- Control Panel (left side)
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JButton recordBtn = new JButton("🎙 Start Recording");
         JButton stopBtn = new JButton("⏹ Stop Recording");
@@ -97,24 +96,14 @@ public class PianoApp {
         loadBtn.addActionListener(e -> loadAndPlay());
         changeTimbreBtn.addActionListener(e -> changeTimbre());
 
-        // --- Chat Panel (right side)
         JPanel chatPanel = new JPanel(new BorderLayout());
-        chatArea = new JTextArea(12, 30);
+        chatArea = new JTextArea(8, 30);
         chatArea.setEditable(false);
         JScrollPane scrollPane = new JScrollPane(chatArea);
-
-        JPanel chatInputPanel = new JPanel(new BorderLayout());
         chatInput = new JTextField();
-        JButton sendButton = new JButton("Send");
-
-        chatInputPanel.add(chatInput, BorderLayout.CENTER);
-        chatInputPanel.add(sendButton, BorderLayout.EAST);
-
-        chatPanel.add(scrollPane, BorderLayout.CENTER);
-        chatPanel.add(chatInputPanel, BorderLayout.SOUTH);
-
         chatInput.addActionListener(e -> sendChat());
-        sendButton.addActionListener(e -> sendChat());
+        chatPanel.add(scrollPane, BorderLayout.CENTER);
+        chatPanel.add(chatInput, BorderLayout.SOUTH);
 
         topPanel.add(controlPanel);
         topPanel.add(chatPanel);
@@ -244,49 +233,6 @@ public class PianoApp {
         if (selectedTimbre != null) {
             TIMBRE = selectedTimbre;
         }
-
-    private static void playFromFile(File file) {
-        java.util.List<String[]> notes = new java.util.ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String header = reader.readLine(); // Skip header
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.split(",");
-                if (parts.length == 4) notes.add(parts);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        long startTime = System.currentTimeMillis();
-        for (String[] entry : notes) {
-            String note = entry[0];
-            long start = Long.parseLong(entry[1]);
-            long end = Long.parseLong(entry[2]);
-            String timbre = entry[3];
-
-            new Thread(() -> {
-                try {
-                    long waitBeforeStart = start - (System.currentTimeMillis() - startTime);
-                    if (waitBeforeStart > 0) {
-                        Thread.sleep(waitBeforeStart);
-                    }
-                    double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
-                    if (freq > 0) {
-                        ToneGenerator.playToneContinuous(freq, note, timbre);
-                        JButton key = keyButtons.get(note);
-                        if (key != null) key.setBackground(Color.YELLOW);
-                    }
-
-                    long duration = end - start;
-                    Thread.sleep(duration);
-
-                    ToneGenerator.stopTone(note);
-                    JButton key = keyButtons.get(note);
-                    if (key != null) key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
-                } catch (InterruptedException ignored) {}
-            }).start();
-        }
     }
 
     private static void sendMessage(String msg) {
@@ -311,7 +257,7 @@ public class PianoApp {
                 if (parts.length >= 2) {
                     String category = parts[0];
                     String content = parts[1];
-
+    
                     if (category.equals("MUSIC")) {
                         handleMusicMessage(content);
                     } else if (category.equals("CHAT")) {
@@ -331,7 +277,7 @@ public class PianoApp {
             String type = parts[0];
             String note = parts[1];
             String timbre = parts[2];
-
+    
             double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
             if (freq > 0) {
                 if (type.equals("NOTE_ON")) {
@@ -356,4 +302,49 @@ public class PianoApp {
             }
         }
     }
+
+    private static void playFromFile(File file) {
+        java.util.List<String[]> notes = new java.util.ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String header = reader.readLine(); // Skip header
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length == 4) notes.add(parts);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    
+        long startTime = System.currentTimeMillis();
+        for (String[] entry : notes) {
+            String note = entry[0];
+            long start = Long.parseLong(entry[1]);
+            long end = Long.parseLong(entry[2]);
+            String timbre = entry[3];
+    
+            new Thread(() -> {
+                try {
+                    long waitBeforeStart = start - (System.currentTimeMillis() - startTime);
+                    if (waitBeforeStart > 0) {
+                        Thread.sleep(waitBeforeStart);
+                    }
+                    double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
+                    if (freq > 0) {
+                        ToneGenerator.playToneContinuous(freq, note, timbre);
+                        JButton key = keyButtons.get(note);
+                        if (key != null) key.setBackground(Color.YELLOW);
+                    }
+    
+                    long duration = end - start;
+                    Thread.sleep(duration);
+    
+                    ToneGenerator.stopTone(note);
+                    JButton key = keyButtons.get(note);
+                    if (key != null) key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
+                } catch (InterruptedException ignored) {}
+            }).start();
+        }
+    }
+
 }
