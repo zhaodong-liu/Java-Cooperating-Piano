@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 
 public class PianoServer {
     private static final int PORT = 5190;
@@ -19,18 +20,18 @@ public class PianoServer {
     }
 
     static class ClientHandler implements Runnable {
-        private Socket socket;
-        private BufferedReader in;
-        private PrintWriter out;
+        private final Socket socket;
+        private final BufferedReader in;
+        private final PrintWriter out;
         private String username = "Anonymous";
 
         public ClientHandler(Socket socket) throws IOException {
             this.socket = socket;
             this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.out = new PrintWriter(socket.getOutputStream(), true);
+            this.out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
         }
 
-        public void sendMessage(String msg) {
+        public synchronized void sendMessage(String msg) {
             out.println(msg);
         }
 
@@ -39,43 +40,67 @@ public class PianoServer {
             try {
                 // First message received should be the username
                 username = in.readLine();
-                broadcast("[System]: " + username + " has entered the room.");
+                if (username == null) {
+                    closeConnection();
+                    return;
+                }
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                broadcastSystemMessage(username + " has entered the room.");
 
                 String msg;
                 while ((msg = in.readLine()) != null) {
-                    String[] parts = msg.split(",", 2);
-                    if (parts.length >= 2) {
-                        String category = parts[0];
-                        String content = parts[1];
+                    int firstComma = msg.indexOf(',');
+                    if (firstComma == -1) {
+                        continue; // Invalid message, ignore
+                    }
 
-                        if (category.equals("MUSIC")) {
-                            // MUSIC: send to all except the sender
-                            for (ClientHandler client : clients) {
-                                if (client != this) {
-                                    client.sendMessage("MUSIC," + content);
-                                }
-                            }
-                        } else if (category.equals("CHAT")) {
-                            // CHAT: send to everyone, username prepended
-                            broadcast(username + ": " + content);
-                        }
+                    String category = msg.substring(0, firstComma);
+                    String content = msg.substring(firstComma + 1);
+
+                    if ("MUSIC".equals(category)) {
+                        broadcastMusicMessage(content);
+                    } else if ("CHAT".equals(category)) {
+                        broadcastChatMessage(username + ": " + content);
                     }
                 }
             } catch (IOException e) {
-                System.out.println("Client disconnected.");
+                System.out.println("Client disconnected: " + username);
             } finally {
                 clients.remove(this);
-                broadcast("[System]: " + username + " has left the room.");
-                try {
-                    socket.close();
-                } catch (IOException ignored) {}
+                broadcastSystemMessage(username + " has left the room.");
+                closeConnection();
             }
         }
 
-        private void broadcast(String message) {
+        private void broadcastMusicMessage(String musicContent) {
             for (ClientHandler client : clients) {
-                client.sendMessage("CHAT," + message);
+                if (client != this) {
+                    client.sendMessage("MUSIC," + musicContent);
+                }
             }
+        }
+
+        private void broadcastChatMessage(String chatContent) {
+            for (ClientHandler client : clients) {
+                client.sendMessage("CHAT," + chatContent);
+            }
+        }
+
+        private void broadcastSystemMessage(String systemMessage) {
+            String fullMessage = systemMessage + " (Current users: " + clients.size() + ")";
+            for (ClientHandler client : clients) {
+                client.sendMessage("CHAT,[System]: " + fullMessage);
+            }
+        }
+
+        private void closeConnection() {
+            try {
+                socket.close();
+            } catch (IOException ignored) {}
         }
     }
 }

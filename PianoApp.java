@@ -134,7 +134,7 @@ public class PianoApp {
     int topPanelHeight = topPanel.getPreferredSize().height;
     frame.setSize(pianoWidth, pianoHeight + topPanelHeight);
 
-    
+
     frame.setVisible(true);
     }
 
@@ -276,16 +276,18 @@ public class PianoApp {
         try {
             String line;
             while ((line = in.readLine()) != null) {
-                String[] parts = line.split(",", 2);
-                if (parts.length >= 2) {
-                    String category = parts[0];
-                    String content = parts[1];
-    
+                int firstComma = line.indexOf(',');
+                if (firstComma != -1) {
+                    String category = line.substring(0, firstComma);
+                    String content = line.substring(firstComma + 1);
+
                     if (category.equals("MUSIC")) {
                         handleMusicMessage(content);
                     } else if (category.equals("CHAT")) {
-                        chatArea.append(content + "\n");
-                        chatArea.setCaretPosition(chatArea.getDocument().getLength());
+                        SwingUtilities.invokeLater(() -> {
+                            chatArea.append(content + "\n");
+                            chatArea.setCaretPosition(chatArea.getDocument().getLength());
+                        });
                     }
                 }
             }
@@ -310,7 +312,9 @@ public class PianoApp {
                     }
                     pressCount.put(note, count + 1);
                     JButton key = keyButtons.get(note);
-                    if (key != null) key.setBackground(Color.YELLOW);
+                    if (key != null) {
+                        SwingUtilities.invokeLater(() -> key.setBackground(Color.YELLOW));
+                    }
                 } else if (type.equals("NOTE_OFF")) {
                     int count = pressCount.getOrDefault(note, 1) - 1;
                     if (count <= 0) {
@@ -320,7 +324,9 @@ public class PianoApp {
                         pressCount.put(note, count);
                     }
                     JButton key = keyButtons.get(note);
-                    if (key != null) key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
+                    if (key != null) {
+                        SwingUtilities.invokeLater(() -> key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
+                    }
                 }
             }
         }
