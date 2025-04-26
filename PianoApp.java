@@ -112,44 +112,29 @@ public class PianoApp {
     chatArea = new JTextArea(8, 30);
     chatArea.setEditable(false);
     JScrollPane scrollPane = new JScrollPane(chatArea);
-
-    // Chat input + send button
     JPanel inputPanel = new JPanel(new BorderLayout());
     chatInput = new JTextField();
     JButton sendButton = new JButton("Send");
-
     sendButton.addActionListener(e -> sendChat());
     chatInput.addActionListener(e -> sendChat());
-
     inputPanel.add(chatInput, BorderLayout.CENTER);
     inputPanel.add(sendButton, BorderLayout.EAST);
-
     chatPanel.add(scrollPane, BorderLayout.CENTER);
     chatPanel.add(inputPanel, BorderLayout.SOUTH);
 
-    // Add control and chat panels to topPanel
     topPanel.add(controlPanel);
     topPanel.add(chatPanel);
 
     // --- Piano Panel ---
     JLayeredPane layeredPane = createPiano();  // Your own method
     layeredPane.setPreferredSize(new Dimension(pianoWidth, pianoHeight));
-
-    // --- Frame Layout ---
     frame.add(topPanel, BorderLayout.NORTH);
     frame.add(layeredPane, BorderLayout.CENTER);
-
-    // First pack to let layout managers measure correctly
     frame.pack();
-
-    // Then set exact width and calculated height
     int topPanelHeight = topPanel.getPreferredSize().height;
     frame.setSize(pianoWidth, pianoHeight + topPanelHeight);
 
-    // Optional: center window on screen
-    frame.setLocationRelativeTo(null);
-
-    // Finally show frame
+    
     frame.setVisible(true);
     }
 
