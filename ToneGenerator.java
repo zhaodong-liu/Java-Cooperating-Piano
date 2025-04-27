@@ -1,141 +1,169 @@
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.*;
 import javax.sound.sampled.*;
 
 public class ToneGenerator {
     private static final float SAMPLE_RATE = 44100f;
-    private static final Map<String, SourceDataLine> playingLines = new HashMap<>();
-    private static final Map<String, Thread> playingThreads = new HashMap<>();
+    private static final Map<String, SourceDataLine> playingLines = new ConcurrentHashMap<>();
+    private static final Map<String, Boolean> keyPressed = new ConcurrentHashMap<>();
+    private static final Map<String, Thread> keyThreads = new ConcurrentHashMap<>();
+    private static final Map<String, String> currentTimbre = new ConcurrentHashMap<>();
+    private static volatile double globalVolume = 0.5; // Default 50%
+
+    public static void setGlobalVolume(double volume) {
+        globalVolume = Math.max(0.0, Math.min(1.0, volume)); // Clamp between 0 and 1
+}
+
+    public static void initializeKeys(Set<String> allKeys) {
+        for (String key : allKeys) {
+            keyPressed.put(key, false);
+            currentTimbre.put(key, "sine"); // default timbre
+
+            Thread thread = new Thread(() -> {
+                try {
+                    AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
+                    SourceDataLine line = AudioSystem.getSourceDataLine(format);
+                    line.open(format);
+                    line.start();
+                    playingLines.put(key, line);
+
+                    double freq = getFrequency(key);
+                    double phase = 0.0;
+                    double phaseIncrement = 2.0 * Math.PI * freq / SAMPLE_RATE;
+                    // double volume = 0.5;
+
+                    int smallChunkSize = 2048; // good balance (~46ms)
+                    int fadeSamples = (int)(SAMPLE_RATE * 0.005); // 5ms fade = 220 samples
+
+                    boolean wasPressed = false;
+                    boolean fadingIn = false;
+                    boolean fadingOut = false;
+                    boolean requestedStop = false;
+                    double fadeVolume = 1.0; // 1.0 = full volume, 0.0 = silent
+
+                    while (true) {
+                        if (keyPressed.getOrDefault(key, false)) {
+                            if (!wasPressed) {
+                                line.start();
+                                wasPressed = true;
+                                fadingIn = true;
+                                fadeVolume = 0.0;
+                            }
+
+                            byte[] buffer = new byte[2 * smallChunkSize];
+                            String timbre = currentTimbre.getOrDefault(key, "sine");
+
+                            for (int i = 0; i < smallChunkSize; i++) {
+                                double wave = generateWave(phase, timbre);
+
+                                // Apply fade-in
+                                if (fadingIn) {
+                                    fadeVolume += 1.0 / fadeSamples;
+                                    if (fadeVolume >= 1.0) {
+                                        fadeVolume = 1.0;
+                                        fadingIn = false;
+                                    }
+                                }
+
+                                short sample = (short) (wave * globalVolume * fadeVolume * Short.MAX_VALUE);
+                                buffer[2 * i] = (byte) (sample & 0xff);
+                                buffer[2 * i + 1] = (byte) ((sample >> 8) & 0xff);
+
+                                phase += phaseIncrement;
+                                if (phase >= 2.0 * Math.PI) {
+                                    phase -= 2.0 * Math.PI;
+                                }
+                            }
+
+                            line.write(buffer, 0, buffer.length);
+
+                        } else {
+                            if (wasPressed && !fadingOut) {
+                                fadingOut = true;
+                                fadeVolume = 1.0;
+                                requestedStop = true;
+                            }
+
+                            if (fadingOut) {
+                                byte[] buffer = new byte[2 * smallChunkSize];
+                                String timbre = currentTimbre.getOrDefault(key, "sine");
+
+                                for (int i = 0; i < smallChunkSize; i++) {
+                                    double wave = generateWave(phase, timbre);
+
+                                    fadeVolume -= 1.0 / fadeSamples;
+                                    if (fadeVolume <= 0.0) {
+                                        fadeVolume = 0.0;
+                                    }
+
+                                    short sample = (short) (wave * globalVolume * fadeVolume * Short.MAX_VALUE);
+                                    buffer[2 * i] = (byte) (sample & 0xff);
+                                    buffer[2 * i + 1] = (byte) ((sample >> 8) & 0xff);
+
+                                    phase += phaseIncrement;
+                                    if (phase >= 2.0 * Math.PI) {
+                                        phase -= 2.0 * Math.PI;
+                                    }
+                                }
+
+                                line.write(buffer, 0, buffer.length);
+
+                                if (fadeVolume <= 0.0) {
+                                    line.stop();
+                                    line.flush();
+                                    wasPressed = false;
+                                    fadingOut = false;
+                                    requestedStop = false;
+                                }
+                            } else {
+                                Thread.sleep(5);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+
+            thread.start();
+            keyThreads.put(key, thread);
+        }
+    }
 
     public static void playToneContinuous(double freq, String key, String timbre) {
-        Thread thread = new Thread(() -> {
-            try {
-                AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
-                SourceDataLine line = AudioSystem.getSourceDataLine(format);
-                line.open(format);
-                line.start();
-                playingLines.put(key, line);
-
-                byte[] buffer = generateWaveform(freq, 200000, timbre); // long looped buffer
-                while (!Thread.currentThread().isInterrupted()) {
-                    line.write(buffer, 0, buffer.length);
-                }
-
-                line.drain();
-                line.stop();
-                line.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                playingLines.remove(key);
-                playingThreads.remove(key);
-            }
-        });
-        thread.start();
-        playingThreads.put(key, thread);
+        keyPressed.put(key, true);
+        currentTimbre.put(key, timbre);
     }
 
     public static void stopTone(String key) {
-        SourceDataLine line = playingLines.get(key);
-        Thread thread = playingThreads.get(key);
-    
-        if (line != null) {
-            new Thread(() -> {
-                try {
-                    int fadeDurationMs = 200;
-                    int steps = 50;
-                    int sleepTime = fadeDurationMs / steps;
-    
-                    FloatControl volumeControl = null;
-                    if (line.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
-                        volumeControl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
-                    }
-    
-                    if (volumeControl != null) {
-                        float initialVolume = volumeControl.getValue();
-                        float minVolume = volumeControl.getMinimum();
-    
-                        for (int i = 0; i < steps; i++) {
-                            float volume = initialVolume + (minVolume - initialVolume) * (i + 1) / steps;
-                            volumeControl.setValue(volume);
-                            Thread.sleep(sleepTime);
-                        }
-                    } else {
-                        Thread.sleep(fadeDurationMs);
-                    }
-                } catch (InterruptedException e) {
-                    // ignore
-                } finally {
-                    if (thread != null) {
-                        thread.interrupt();  // 1. Stop tone generating thread
-                    }
-                    if (line != null) {
-                        line.stop();   // 2. Stop playing
-                        line.flush();  // 3. Remove queued data
-                        line.close();  // 4. Fully close the resource
-                    }
-                    playingLines.remove(key);
-                    playingThreads.remove(key);
-                }
-            }).start();
-        }
+        keyPressed.put(key, false);
     }
 
     public static void stopAllTones() {
-        // Copy current keys
-        var keys = new HashMap<>(playingLines).keySet();
-        for (String key : keys) {
+        for (String key : keyPressed.keySet()) {
             stopTone(key);
-        }
-
-        // Optionally, wait a little to let fade-out complete
-        try {
-            Thread.sleep(250); // wait for fade threads to finish
-        } catch (InterruptedException e) {
-            // ignore
         }
     }
 
-    private static byte[] generateWaveform(double freq, int durationMs, String timbre) {
-        double volume = 0.5;
-        int cycles = (int) Math.max(1, Math.round(freq * durationMs / 1000.0));
-        int samplesPerCycle = (int) (SAMPLE_RATE / freq);
-        int numSamples = samplesPerCycle * cycles;
-        byte[] buffer = new byte[2 * numSamples];
-
-        for (int i = 0; i < numSamples; i++) {
-            double angle = 2.0 * Math.PI * i * freq / SAMPLE_RATE;
-            double wave;
-
-            switch (timbre) {
-                case "square":
-                    wave = Math.signum(Math.sin(angle));
-                    break;
-                case "triangle":
-                    wave = 2 / Math.PI * Math.asin(Math.sin(angle));
-                    break;
-                case "sawtooth":
-                    wave = 2 * (i * freq / SAMPLE_RATE - Math.floor(i * freq / SAMPLE_RATE + 0.5));
-                    break;
-                default:
-                    wave = Math.sin(angle);
-            }
-
-            // Apply fade-in/out (5ms ramp)
-            int fadeSamples = (int) (SAMPLE_RATE * 0.005);
-            double fadeFactor = 1.0;
-            if (i < fadeSamples) {
-                fadeFactor = i / (double) fadeSamples;
-            } else if (i > numSamples - fadeSamples) {
-                fadeFactor = (numSamples - i) / (double) fadeSamples;
-            }
-
-            wave *= volume * fadeFactor;
-            short sample = (short) (wave * Short.MAX_VALUE);
-            buffer[2 * i] = (byte) (sample & 0xff);
-            buffer[2 * i + 1] = (byte) ((sample >> 8) & 0xff);
+    private static double getFrequency(String key) {
+        if (PianoApp.BLACK_KEYS.containsKey(key)) {
+            return PianoApp.BLACK_KEYS.get(key);
+        } else {
+            return PianoApp.WHITE_KEYS.get(key);
         }
+    }
 
-        return buffer;
+    private static double generateWave(double phase, String timbre) {
+        switch (timbre) {
+            case "square":
+                return Math.signum(Math.sin(phase));
+            case "triangle":
+                return 2.0 / Math.PI * Math.asin(Math.sin(phase));
+            case "sawtooth":
+                return 2.0 * (phase / (2.0 * Math.PI)) - 1.0;
+            case "sine":
+            default:
+                return Math.sin(phase);
+        }
     }
 }
