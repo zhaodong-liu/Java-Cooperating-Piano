@@ -2,13 +2,15 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.net.*;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 import javax.swing.*;
 
 public class PianoApp {
-    private static final java.util.Map<String, Double> WHITE_KEYS = new java.util.LinkedHashMap<>();
-    private static final java.util.Map<String, Double> BLACK_KEYS = new java.util.LinkedHashMap<>();
+    public static final java.util.Map<String, Double> WHITE_KEYS = new java.util.LinkedHashMap<>();
+    public static final java.util.Map<String, Double> BLACK_KEYS = new java.util.LinkedHashMap<>();
     private static final java.util.Map<String, JButton> keyButtons = new java.util.HashMap<>();
     private static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
@@ -55,6 +57,12 @@ public class PianoApp {
         out.println(username);
         new Thread(PianoApp::listenForMessages).start();
 
+    
+    // Initialize all key threads once
+    Set<String> allKeys = new HashSet<>();
+    allKeys.addAll(WHITE_KEYS.keySet());
+    allKeys.addAll(BLACK_KEYS.keySet());
+    ToneGenerator.initializeKeys(allKeys);
 
     // Constants for layout
     int whiteKeyWidth = 60;
