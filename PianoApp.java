@@ -87,7 +87,15 @@ public class PianoApp {
     JButton loadBtn = new JButton("📂 Load & Play");
     JButton changeTimbreBtn = new JButton("Timbre Selection");
     JButton resetBtn = new JButton("🔄 Reset");
+    JLabel volumeLabel = new JLabel("Volume:");
+    JSlider volumeSlider = new JSlider(0, 100, 50); // min=0%, max=100%, default=50%
+    volumeSlider.addChangeListener(e -> {
+        double volume = volumeSlider.getValue() / 100.0;
+        ToneGenerator.setGlobalVolume(volume);
+    });
 
+    controlPanel.add(volumeLabel);
+    controlPanel.add(volumeSlider);
     controlPanel.add(recordBtn);
     controlPanel.add(stopBtn);
     controlPanel.add(saveBtn);

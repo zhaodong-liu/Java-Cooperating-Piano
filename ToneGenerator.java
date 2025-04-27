@@ -8,6 +8,11 @@ public class ToneGenerator {
     private static final Map<String, Boolean> keyPressed = new ConcurrentHashMap<>();
     private static final Map<String, Thread> keyThreads = new ConcurrentHashMap<>();
     private static final Map<String, String> currentTimbre = new ConcurrentHashMap<>();
+    private static volatile double globalVolume = 0.5; // Default 50%
+
+    public static void setGlobalVolume(double volume) {
+        globalVolume = Math.max(0.0, Math.min(1.0, volume)); // Clamp between 0 and 1
+}
 
     public static void initializeKeys(Set<String> allKeys) {
         for (String key : allKeys) {
@@ -25,7 +30,7 @@ public class ToneGenerator {
                     double freq = getFrequency(key);
                     double phase = 0.0;
                     double phaseIncrement = 2.0 * Math.PI * freq / SAMPLE_RATE;
-                    double volume = 0.5;
+                    // double volume = 0.5;
 
                     int smallChunkSize = 2048; // good balance (~46ms)
                     int fadeSamples = (int)(SAMPLE_RATE * 0.005); // 5ms fade = 220 samples
@@ -60,7 +65,7 @@ public class ToneGenerator {
                                     }
                                 }
 
-                                short sample = (short) (wave * volume * fadeVolume * Short.MAX_VALUE);
+                                short sample = (short) (wave * globalVolume * fadeVolume * Short.MAX_VALUE);
                                 buffer[2 * i] = (byte) (sample & 0xff);
                                 buffer[2 * i + 1] = (byte) ((sample >> 8) & 0xff);
 
@@ -91,7 +96,7 @@ public class ToneGenerator {
                                         fadeVolume = 0.0;
                                     }
 
-                                    short sample = (short) (wave * volume * fadeVolume * Short.MAX_VALUE);
+                                    short sample = (short) (wave * globalVolume * fadeVolume * Short.MAX_VALUE);
                                     buffer[2 * i] = (byte) (sample & 0xff);
                                     buffer[2 * i + 1] = (byte) ((sample >> 8) & 0xff);
 
