@@ -78,14 +78,14 @@ public class PianoApp {
     JButton saveBtn = new JButton("💾 Save Recording");
     JButton loadBtn = new JButton("📂 Load & Play");
     JButton changeTimbreBtn = new JButton("Timbre Selection");
-    // JButton resetBtn = new JButton("🔄 Reset");
+    JButton resetBtn = new JButton("🔄 Reset");
 
     controlPanel.add(recordBtn);
     controlPanel.add(stopBtn);
     controlPanel.add(saveBtn);
     controlPanel.add(loadBtn);
     controlPanel.add(changeTimbreBtn);
-    // controlPanel.add(resetBtn);
+    controlPanel.add(resetBtn);
 
     stopBtn.setEnabled(false);
 
@@ -109,7 +109,7 @@ public class PianoApp {
     loadBtn.addActionListener(e -> loadAndPlay());
     changeTimbreBtn.addActionListener(e -> changeTimbre());
 
-    // resetBtn.addActionListener(e -> resetAllNotes());
+    resetBtn.addActionListener(e -> resetAllNotes());
 
     // --- Chat Panel ---
     JPanel chatPanel = new JPanel(new BorderLayout());
@@ -263,20 +263,20 @@ public class PianoApp {
     }
 
 
-    // private static void resetAllNotes() {
-    //     // Stop ALL tones
-    //     ToneGenerator.stopAllTones();
+    private static void resetAllNotes() {
+        // Stop ALL tones
+        ToneGenerator.stopAllTones();
     
-    //     // Reset UI colors
-    //     for (var entry : keyButtons.entrySet()) {
-    //         String note = entry.getKey();
-    //         JButton key = entry.getValue();
-    //         key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
-    //     }
+        // Reset UI colors
+        for (var entry : keyButtons.entrySet()) {
+            String note = entry.getKey();
+            JButton key = entry.getValue();
+            key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
+        }
     
-    //     // Clear pressed notes map
-    //     pressCount.clear();
-    // }
+        // Clear pressed notes map
+        pressCount.clear();
+    }
 
     private static void sendMessage(String msg) {
         networkExecutor.submit(() -> {
