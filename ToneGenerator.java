@@ -30,7 +30,6 @@ public class ToneGenerator {
                     double freq = getFrequency(key);
                     double phase = 0.0;
                     double phaseIncrement = 2.0 * Math.PI * freq / SAMPLE_RATE;
-                    // double volume = 0.5;
 
                     int smallChunkSize = 2048; // good balance (~46ms)
                     int fadeSamples = (int)(SAMPLE_RATE * 0.005); // 5ms fade = 220 samples
