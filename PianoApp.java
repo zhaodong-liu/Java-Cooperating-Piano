@@ -270,7 +270,12 @@ public class PianoApp {
     }
 
     private static void changeTimbre() {
-        String[] timbres = {"sine", "square", "sawtooth", "triangle"};
+        String[] timbres = {
+            "sine", 
+            "square", 
+            "sawtooth", 
+            "triangle"
+        };
         String selectedTimbre = (String) JOptionPane.showInputDialog(null, "Select Timbre:", "Timbre Selection",
                 JOptionPane.PLAIN_MESSAGE, null, timbres, TIMBRE);
         if (selectedTimbre != null) {
