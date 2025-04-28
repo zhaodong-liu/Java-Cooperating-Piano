@@ -1,3 +1,4 @@
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 import javax.sound.sampled.*;
@@ -8,11 +9,37 @@ public class ToneGenerator {
     private static final Map<String, Boolean> keyPressed = new ConcurrentHashMap<>();
     private static final Map<String, Thread> keyThreads = new ConcurrentHashMap<>();
     private static final Map<String, String> currentTimbre = new ConcurrentHashMap<>();
+    private static final Map<String, byte[]> pianoSamples = new ConcurrentHashMap<>();
     private static volatile double globalVolume = 0.5; // Default 50%
 
     public static void setGlobalVolume(double volume) {
-        globalVolume = Math.max(0.0, Math.min(1.0, volume)); // Clamp between 0 and 1
-}
+        globalVolume = Math.max(0.0, Math.min(1.0, volume));
+    }
+
+    public static void loadPianoSamples() {
+        String[] notes = {"C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4",
+                          "C5", "C#5", "D5", "D#5", "E5", "F5", "F#5", "G5", "G#5", "A5", "A#5", "B5",
+                          "C6", "C#6", "D6", "D#6", "E6", "F6", "F#6", "G6", "G#6", "A6", "A#6", "B6", "C7"};
+        for (String note : notes) {
+            try {
+                File file = new File("piano_samples/" + note + ".wav");
+                AudioInputStream ais = AudioSystem.getAudioInputStream(file);
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buffer = new byte[1024];
+                int read;
+                while ((read = ais.read(buffer)) != -1) {
+                    baos.write(buffer, 0, read);
+                }
+                pianoSamples.put(note, baos.toByteArray());
+
+                System.out.println("Loaded sample for " + note);
+
+            } catch (Exception e) {
+                System.err.println("Failed to load sample for " + note);
+            }
+        }
+        
+    }
 
     public static void initializeKeys(Set<String> allKeys) {
         for (String key : allKeys) {
@@ -31,14 +58,14 @@ public class ToneGenerator {
                     double phase = 0.0;
                     double phaseIncrement = 2.0 * Math.PI * freq / SAMPLE_RATE;
 
-                    int smallChunkSize = 2048; // good balance (~46ms)
-                    int fadeSamples = (int)(SAMPLE_RATE * 0.005); // 5ms fade = 220 samples
+                    int smallChunkSize = 2048;
+                    int fadeSamples = (int)(SAMPLE_RATE * 0.005);
 
                     boolean wasPressed = false;
                     boolean fadingIn = false;
                     boolean fadingOut = false;
                     boolean requestedStop = false;
-                    double fadeVolume = 1.0; // 1.0 = full volume, 0.0 = silent
+                    double fadeVolume = 1.0;
 
                     while (true) {
                         if (keyPressed.getOrDefault(key, false)) {
@@ -52,10 +79,22 @@ public class ToneGenerator {
                             byte[] buffer = new byte[2 * smallChunkSize];
                             String timbre = currentTimbre.getOrDefault(key, "sine");
 
+                            if (timbre.equals("piano")) {
+                                playPianoSample(key);
+                                
+                                // Wait until key is released before continuing
+                                while (keyPressed.getOrDefault(key, false)) {
+                                    Thread.sleep(1);  // Short sleep to avoid busy waiting
+                                }
+                            
+                                wasPressed = false;
+                                fadingIn = false;
+                                continue;
+                            }
+
                             for (int i = 0; i < smallChunkSize; i++) {
                                 double wave = generateWave(phase, timbre);
 
-                                // Apply fade-in
                                 if (fadingIn) {
                                     fadeVolume += 1.0 / fadeSamples;
                                     if (fadeVolume >= 1.0) {
@@ -132,6 +171,10 @@ public class ToneGenerator {
     public static void playToneContinuous(double freq, String key, String timbre) {
         keyPressed.put(key, true);
         currentTimbre.put(key, timbre);
+    
+        if ("piano".equals(timbre)) {
+            playPianoSample(key);
+        }
     }
 
     public static void stopTone(String key) {
@@ -160,9 +203,43 @@ public class ToneGenerator {
                 return 2.0 / Math.PI * Math.asin(Math.sin(phase));
             case "sawtooth":
                 return 2.0 * (phase / (2.0 * Math.PI)) - 1.0;
+            case "piano":
+                return 0.0; // Piano sound is handled separately
             case "sine":
             default:
                 return Math.sin(phase);
         }
+    }
+
+    private static void playPianoSample(String key) {
+        byte[] data = pianoSamples.get(key);
+        if (data == null) return;
+    
+        SourceDataLine line = playingLines.get(key);
+        if (line == null) return;
+    
+        new Thread(() -> {
+            try {
+                line.start();
+                int bufferSize = 256; // much smaller buffer
+                int offset = 0;
+    
+                while (offset < data.length) {
+                    if (!keyPressed.getOrDefault(key, false)) {
+                        line.stop();
+                        line.flush();
+                        return;
+                    }
+    
+                    int bytesToWrite = Math.min(bufferSize, data.length - offset);
+                    line.write(data, offset, bytesToWrite);
+                    offset += bytesToWrite;
+                }
+    
+                line.drain();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 }

@@ -55,107 +55,109 @@ public class PianoApp {
         out = new PrintWriter(socket.getOutputStream(), true);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out.println(username);
-        new Thread(PianoApp::listenForMessages).start();
 
-    
-    // Initialize all key threads once
-    Set<String> allKeys = new HashSet<>();
-    allKeys.addAll(WHITE_KEYS.keySet());
-    allKeys.addAll(BLACK_KEYS.keySet());
-    ToneGenerator.initializeKeys(allKeys);
+        ToneGenerator.loadPianoSamples();
+        
+        // Initialize all key threads once
+        Set<String> allKeys = new HashSet<>();
+        allKeys.addAll(WHITE_KEYS.keySet());
+        allKeys.addAll(BLACK_KEYS.keySet());
+        ToneGenerator.initializeKeys(allKeys);
 
-    // Constants for layout
-    int whiteKeyWidth = 60;
-    int numberOfWhiteKeys = WHITE_KEYS.size(); // Dynamically from your map
-    int pianoWidth = whiteKeyWidth * numberOfWhiteKeys;
-    int pianoHeight = 300;  // From your createPiano()
+        // Constants for layout
+        int whiteKeyWidth = 60;
+        int numberOfWhiteKeys = WHITE_KEYS.size(); // Dynamically from your map
+        int pianoWidth = whiteKeyWidth * numberOfWhiteKeys;
+        int pianoHeight = 300;  // From your createPiano()
 
-    // Create frame
-    JFrame frame = new JFrame("Cooperating Piano 🎹");
-    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.setLayout(new BorderLayout());
-    frame.setResizable(false);
+        // Create frame
+        JFrame frame = new JFrame("Cooperating Piano 🎹");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLayout(new BorderLayout());
+        frame.setResizable(false);
 
-    // Create top panel (Control buttons + Chat)
-    JPanel topPanel = new JPanel(new GridLayout(1, 2));
+        // Create top panel (Control buttons + Chat)
+        JPanel topPanel = new JPanel(new GridLayout(1, 2));
 
-    // --- Control Panel ---
-    JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-    JButton recordBtn = new JButton("🎙 Start Recording");
-    JButton stopBtn = new JButton("⏹ Stop Recording");
-    JButton saveBtn = new JButton("💾 Save Recording");
-    JButton loadBtn = new JButton("📂 Load & Play");
-    JButton changeTimbreBtn = new JButton("Timbre Selection");
-    JButton resetBtn = new JButton("🔄 Reset");
-    JLabel volumeLabel = new JLabel("Volume:");
-    JSlider volumeSlider = new JSlider(0, 100, 50); // min=0%, max=100%, default=50%
-    volumeSlider.addChangeListener(e -> {
-        double volume = volumeSlider.getValue() / 100.0;
-        ToneGenerator.setGlobalVolume(volume);
-    });
+        // --- Control Panel ---
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton recordBtn = new JButton("🎙 Start Recording");
+        JButton stopBtn = new JButton("⏹ Stop Recording");
+        JButton saveBtn = new JButton("💾 Save Recording");
+        JButton loadBtn = new JButton("📂 Load & Play");
+        JButton changeTimbreBtn = new JButton("Timbre Selection");
+        JButton resetBtn = new JButton("🔄 Reset");
+        JLabel volumeLabel = new JLabel("Volume:");
+        JSlider volumeSlider = new JSlider(0, 100, 50); // min=0%, max=100%, default=50%
+        volumeSlider.addChangeListener(e -> {
+            double volume = volumeSlider.getValue() / 100.0;
+            ToneGenerator.setGlobalVolume(volume);
+        });
 
-    controlPanel.add(volumeLabel);
-    controlPanel.add(volumeSlider);
-    controlPanel.add(recordBtn);
-    controlPanel.add(stopBtn);
-    controlPanel.add(saveBtn);
-    controlPanel.add(loadBtn);
-    controlPanel.add(changeTimbreBtn);
-    controlPanel.add(resetBtn);
+        controlPanel.add(volumeLabel);
+        controlPanel.add(volumeSlider);
+        controlPanel.add(recordBtn);
+        controlPanel.add(stopBtn);
+        controlPanel.add(saveBtn);
+        controlPanel.add(loadBtn);
+        controlPanel.add(changeTimbreBtn);
+        controlPanel.add(resetBtn);
 
-    stopBtn.setEnabled(false);
-
-    // Control panel actions
-    recordBtn.addActionListener(e -> {
-        isRecording = true;
-        rawEvents.clear();
-        activeNotes.clear();
-        recordingStartTime = System.currentTimeMillis();
-        recordBtn.setEnabled(false);
-        stopBtn.setEnabled(true);
-    });
-
-    stopBtn.addActionListener(e -> {
-        isRecording = false;
-        recordBtn.setEnabled(true);
         stopBtn.setEnabled(false);
-    });
 
-    saveBtn.addActionListener(e -> saveRecording());
-    loadBtn.addActionListener(e -> loadAndPlay());
-    changeTimbreBtn.addActionListener(e -> changeTimbre());
+        // Control panel actions
+        recordBtn.addActionListener(e -> {
+            isRecording = true;
+            rawEvents.clear();
+            activeNotes.clear();
+            recordingStartTime = System.currentTimeMillis();
+            recordBtn.setEnabled(false);
+            stopBtn.setEnabled(true);
+        });
 
-    resetBtn.addActionListener(e -> resetAllNotes());
+        stopBtn.addActionListener(e -> {
+            isRecording = false;
+            recordBtn.setEnabled(true);
+            stopBtn.setEnabled(false);
+        });
 
-    // --- Chat Panel ---
-    JPanel chatPanel = new JPanel(new BorderLayout());
-    chatArea = new JTextArea(8, 30);
-    chatArea.setEditable(false);
-    JScrollPane scrollPane = new JScrollPane(chatArea);
-    JPanel inputPanel = new JPanel(new BorderLayout());
-    chatInput = new JTextField();
-    JButton sendButton = new JButton("Send");
-    sendButton.addActionListener(e -> sendChat());
-    chatInput.addActionListener(e -> sendChat());
-    inputPanel.add(chatInput, BorderLayout.CENTER);
-    inputPanel.add(sendButton, BorderLayout.EAST);
-    chatPanel.add(scrollPane, BorderLayout.CENTER);
-    chatPanel.add(inputPanel, BorderLayout.SOUTH);
+        saveBtn.addActionListener(e -> saveRecording());
+        loadBtn.addActionListener(e -> loadAndPlay());
+        changeTimbreBtn.addActionListener(e -> changeTimbre());
 
-    topPanel.add(controlPanel);
-    topPanel.add(chatPanel);
+        resetBtn.addActionListener(e -> resetAllNotes());
 
-    // --- Piano Panel ---
-    JLayeredPane layeredPane = createPiano();  // Your own method
-    layeredPane.setPreferredSize(new Dimension(pianoWidth, pianoHeight));
-    frame.add(topPanel, BorderLayout.NORTH);
-    frame.add(layeredPane, BorderLayout.CENTER);
-    frame.pack();
-    int topPanelHeight = topPanel.getPreferredSize().height;
-    frame.setSize(pianoWidth, pianoHeight + topPanelHeight);
+        // --- Chat Panel ---
+        JPanel chatPanel = new JPanel(new BorderLayout());
+        chatArea = new JTextArea(8, 30);
+        chatArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(chatArea);
+        JPanel inputPanel = new JPanel(new BorderLayout());
+        chatInput = new JTextField();
+        JButton sendButton = new JButton("Send");
+        sendButton.addActionListener(e -> sendChat());
+        chatInput.addActionListener(e -> sendChat());
+        inputPanel.add(chatInput, BorderLayout.CENTER);
+        inputPanel.add(sendButton, BorderLayout.EAST);
+        chatPanel.add(scrollPane, BorderLayout.CENTER);
+        chatPanel.add(inputPanel, BorderLayout.SOUTH);
+
+        topPanel.add(controlPanel);
+        topPanel.add(chatPanel);
+
+        // --- Piano Panel ---
+        JLayeredPane layeredPane = createPiano();  // Your own method
+        layeredPane.setPreferredSize(new Dimension(pianoWidth, pianoHeight));
+        frame.add(topPanel, BorderLayout.NORTH);
+        frame.add(layeredPane, BorderLayout.CENTER);
+        frame.pack();
+        int topPanelHeight = topPanel.getPreferredSize().height;
+        frame.setSize(pianoWidth, pianoHeight + topPanelHeight);
 
 
-    frame.setVisible(true);
+        frame.setVisible(true);
+        
+        new Thread(PianoApp::listenForMessages).start();
     }
 
     private static JButton createKey(String note, double freq, boolean isBlack, int x, int y, int w, int h) {
@@ -274,7 +276,8 @@ public class PianoApp {
             "sine", 
             "square", 
             "sawtooth", 
-            "triangle"
+            "triangle",
+            "piano"
         };
         String selectedTimbre = (String) JOptionPane.showInputDialog(null, "Select Timbre:", "Timbre Selection",
                 JOptionPane.PLAIN_MESSAGE, null, timbres, TIMBRE);
