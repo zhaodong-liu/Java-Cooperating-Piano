@@ -80,7 +80,13 @@ public class PianoApp {
         JPanel topPanel = new JPanel(new GridLayout(1, 2));
 
         // --- Control Panel ---
-        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel controlPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.weightx = 1.0;
+
         JButton recordBtn = new JButton("🎙 Start Recording");
         JButton stopBtn = new JButton("⏹ Stop Recording");
         JButton saveBtn = new JButton("💾 Save Recording");
@@ -94,14 +100,33 @@ public class PianoApp {
             ToneGenerator.setGlobalVolume(volume);
         });
 
-        controlPanel.add(volumeLabel);
-        controlPanel.add(volumeSlider);
-        controlPanel.add(recordBtn);
-        controlPanel.add(stopBtn);
-        controlPanel.add(saveBtn);
-        controlPanel.add(loadBtn);
-        controlPanel.add(changeTimbreBtn);
-        controlPanel.add(resetBtn);
+        // Row 1: Volume
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        controlPanel.add(volumeLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 4;
+        controlPanel.add(volumeSlider, gbc);
+        gbc.gridwidth = 1;
+
+        // Row 2: Record, Stop, Save, Load
+        gbc.gridy = 1;
+        gbc.gridx = 0;
+        controlPanel.add(recordBtn, gbc);
+        gbc.gridx = 1;
+        controlPanel.add(stopBtn, gbc);
+        gbc.gridx = 2;
+        controlPanel.add(saveBtn, gbc);
+        gbc.gridx = 3;
+        controlPanel.add(loadBtn, gbc);
+
+        // Row 3: Timbre, Reset
+        gbc.gridy = 2;
+        gbc.gridx = 0;
+        controlPanel.add(changeTimbreBtn, gbc);
+        gbc.gridx = 1;
+        controlPanel.add(resetBtn, gbc);
 
         stopBtn.setEnabled(false);
 
@@ -124,7 +149,6 @@ public class PianoApp {
         saveBtn.addActionListener(e -> saveRecording());
         loadBtn.addActionListener(e -> loadAndPlay());
         changeTimbreBtn.addActionListener(e -> changeTimbre());
-
         resetBtn.addActionListener(e -> resetAllNotes());
 
         // --- Chat Panel ---
@@ -146,14 +170,15 @@ public class PianoApp {
         topPanel.add(chatPanel);
 
         // --- Piano Panel ---
-        JLayeredPane layeredPane = createPiano();  // Your own method
+        JLayeredPane layeredPane = createPiano();  // Your method
         layeredPane.setPreferredSize(new Dimension(pianoWidth, pianoHeight));
+
         frame.add(topPanel, BorderLayout.NORTH);
         frame.add(layeredPane, BorderLayout.CENTER);
         frame.pack();
+
         int topPanelHeight = topPanel.getPreferredSize().height;
         frame.setSize(pianoWidth, pianoHeight + topPanelHeight);
-
 
         frame.setVisible(true);
         
