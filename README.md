@@ -8,8 +8,14 @@ Record and save the music in a simple format, and also support play from a local
 
 ## Implementation: 
 ### Soundplay: 
-A thread is started for each note at the initialization process, and then the thread will listen for the signal to play the sound.
+A thread is started for each note during the initialization process, and then the thread will listen for the signal to play the sound.
 <br>
 For the electronic timbres, the frequency of each note was stored in advance, and the tone generator could make up certain kinds of waves(sine, square, etc.) with the corresponding frequency. 
 <br>
 For the real piano sound, an open-source sound pack was used as the sound sample. The sound files will be loaded in advance and be played when the key is clicked. 
+
+### Server:
+The server listens for two kinds of messages: "MUSIC" and "CHAT", once received message, it will broadcast the message to all the users.
+
+### (Play from/Save to) File:
+The notes are saved in format: note,startTime,endTime, timbre, which is easy to code and modify outside. It is possible to compose some music in this format and play in the App.
