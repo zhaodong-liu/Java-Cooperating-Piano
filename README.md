@@ -11,7 +11,7 @@ Record and save the music in a simple format, and also support play from a local
 A thread is started for each note during the initialization process, and then the thread will listen for the signal to play the sound.
 <br>
 For the electronic timbres, the frequency of each note was stored in advance, and the tone generator could make up certain kinds of waves(sine, square, etc.) with the corresponding frequency. 
-<br>
+<br><br>
 The electronic sounds are achieved by the following wave: <br>
 "square": Math.signum(Math.sin(phase)) <br>
 "triangle": return 2.0 / Math.PI * Math.asin(Math.sin(phase)) <br>
