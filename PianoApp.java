@@ -1,5 +1,4 @@
 import java.awt.*;
-import java.awt.event.*;
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
@@ -9,9 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-
 import javax.swing.*;
 
 public class PianoApp {
@@ -164,7 +161,6 @@ public class PianoApp {
         controlPanel.add(changeTimbreBtn, gbc);
         gbc.gridx = 2;
         controlPanel.add(resetBtn, gbc);
-        stopBtn.setEnabled(false);
 
         // Control panel actions
         playResumeBtn.addActionListener(e -> {
@@ -238,7 +234,8 @@ public class PianoApp {
 
         frame.setVisible(true);
         
-        new Thread(PianoApp::listenForMessages).start();
+
+        networkExecutor.submit(PianoApp::listenForMessages);
     }
 
     private static JLayeredPane createPiano() {
