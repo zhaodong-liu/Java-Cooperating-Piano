@@ -521,25 +521,44 @@ public class PianoApp {
                             }
     
                             // schedule stopping
+                            // schedule stopping with safe remaining time
                             long duration = end - start;
-                            new Thread(() -> {
-                                try {
-                                    Thread.sleep(duration - (logicalTime - start));
-                                } catch (InterruptedException ignored) {}
-    
+                            long alreadyPlayed = logicalTime - start;
+                            long safeSleep = duration - alreadyPlayed;
+
+                            if (safeSleep > 0) {
+                                new Thread(() -> {
+                                    try {
+                                        Thread.sleep(safeSleep);
+                                    } catch (InterruptedException ignored) {}
+
+                                    ToneGenerator.stopTone(note);
+                                    pressCount.remove(note);
+                                    activePlaybackNotes.remove(note);
+                                    activeNoteEndTimes.remove(note);
+                                    activeNoteStartTimes.remove(note);
+                                    activeNoteTimbres.remove(note);
+
+                                    JButton btn = keyButtons.get(note);
+                                    if (btn != null) {
+                                        SwingUtilities.invokeLater(() ->
+                                                btn.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
+                                    }
+                                }).start();
+                            } else {
+                                // Already expired, stop immediately
                                 ToneGenerator.stopTone(note);
                                 pressCount.remove(note);
                                 activePlaybackNotes.remove(note);
-                                activeNoteStartTimes.remove(note);
                                 activeNoteEndTimes.remove(note);
+                                activeNoteStartTimes.remove(note);
                                 activeNoteTimbres.remove(note);
-    
                                 JButton btn = keyButtons.get(note);
                                 if (btn != null) {
                                     SwingUtilities.invokeLater(() ->
-                                        btn.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
+                                            btn.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
                                 }
-                            }).start();
+                            }
                         }
                     }
                 }
@@ -563,33 +582,36 @@ public class PianoApp {
         synchronized (playbackLock) {
             isPaused = !isPaused;
     
+            long logicalNow = System.currentTimeMillis() - playbackStart.get();
+    
             if (isPaused) {
                 // === PAUSE ===
-                long logicalNow = System.currentTimeMillis() - playbackStart.get();
-    
-                // Clear and recapture active notes
                 activePlaybackNotes.clear();
+    
                 for (String note : keyButtons.keySet()) {
-                    if (pressCount.containsKey(note)) {
-                        // Mark as active
-                        activePlaybackNotes.add(note);
+                    if (!pressCount.containsKey(note)) continue;
     
-                        // Adjust remaining time
-                        long start = activeNoteStartTimes.getOrDefault(note, logicalNow);
-                        long end = activeNoteEndTimes.getOrDefault(note, logicalNow + 1000);
-                        long played = logicalNow - start;
-                        long newRemaining = Math.max(0, end - logicalNow);
+                    long start = activeNoteStartTimes.getOrDefault(note, logicalNow);
+                    long end = activeNoteEndTimes.getOrDefault(note, logicalNow + 1000);
     
-                        // Set new adjusted end time
-                        activeNoteEndTimes.put(note, logicalNow + newRemaining);
-                        activeNoteStartTimes.put(note, logicalNow); // reset to now
+                    if (logicalNow >= end) {
+                        // Note 已经结束，跳过
+                        continue;
+                    }
     
-                        // Stop tone immediately
-                        ToneGenerator.stopTone(note);
-                        JButton key = keyButtons.get(note);
-                        if (key != null) {
-                            key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
-                        }
+                    long remaining = end - logicalNow;
+    
+                    // 记录该 note 状态
+                    activePlaybackNotes.add(note);
+                    activeNoteEndTimes.put(note, logicalNow + remaining);
+                    activeNoteStartTimes.put(note, logicalNow); // reset start to now
+                    activeNoteTimbres.putIfAbsent(note, TIMBRE);
+    
+                    // Stop it
+                    ToneGenerator.stopTone(note);
+                    JButton key = keyButtons.get(note);
+                    if (key != null) {
+                        key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
                     }
                 }
     
@@ -597,45 +619,48 @@ public class PianoApp {
     
             } else {
                 // === RESUME ===
-                long logicalNow = System.currentTimeMillis() - playbackStart.get();
-    
                 for (String note : new HashSet<>(activePlaybackNotes)) {
-                    long endTime = activeNoteEndTimes.getOrDefault(note, logicalNow + 500);
-                    long remaining = endTime - logicalNow;
-                    String timbre = activeNoteTimbres.getOrDefault(note, TIMBRE);
+                    long end = activeNoteEndTimes.getOrDefault(note, logicalNow + 100);
+                    long remaining = end - logicalNow;
     
-                    if (remaining > 0) {
-                        double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
-                        if (freq > 0) {
-                            ToneGenerator.playToneContinuous(freq, note, timbre);
-                            JButton key = keyButtons.get(note);
-                            if (key != null) key.setBackground(Color.YELLOW);
-                            pressCount.put(note, 1);
-                        }
-    
-                        new Thread(() -> {
-                            try {
-                                Thread.sleep(remaining);
-                            } catch (InterruptedException ignored) {}
-                            ToneGenerator.stopTone(note);
-                            pressCount.remove(note);
-                            activePlaybackNotes.remove(note);
-                            activeNoteEndTimes.remove(note);
-                            activeNoteStartTimes.remove(note);
-                            activeNoteTimbres.remove(note);
-                            JButton key = keyButtons.get(note);
-                            if (key != null) {
-                                SwingUtilities.invokeLater(() ->
-                                    key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
-                            }
-                        }).start();
-                    } else {
-                        // Already expired
+                    if (remaining <= 0) {
+                        // 已结束，跳过
                         activePlaybackNotes.remove(note);
                         activeNoteEndTimes.remove(note);
                         activeNoteStartTimes.remove(note);
                         activeNoteTimbres.remove(note);
+                        continue;
                     }
+    
+                    String timbre = activeNoteTimbres.getOrDefault(note, TIMBRE);
+                    double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
+    
+                    if (freq > 0) {
+                        ToneGenerator.playToneContinuous(freq, note, timbre);
+                        JButton key = keyButtons.get(note);
+                        if (key != null) key.setBackground(Color.YELLOW);
+                        pressCount.put(note, 1);
+                    }
+    
+                    new Thread(() -> {
+                        try {
+                            if (remaining > 0) {
+                                Thread.sleep(remaining);
+                            }
+                        } catch (InterruptedException ignored) {}
+                    
+                        ToneGenerator.stopTone(note);
+                        pressCount.remove(note);
+                        activePlaybackNotes.remove(note);
+                        activeNoteEndTimes.remove(note);
+                        activeNoteStartTimes.remove(note);
+                        activeNoteTimbres.remove(note);
+                        JButton key = keyButtons.get(note);
+                        if (key != null) {
+                            SwingUtilities.invokeLater(() ->
+                                    key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
+                        }
+                    }).start();
                 }
     
                 SwingUtilities.invokeLater(() -> playResumeBtn.setText("⏸ Pause"));
