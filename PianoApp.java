@@ -3,9 +3,14 @@ import java.awt.event.*;
 import java.io.*;
 import java.net.*;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
+
+
 import javax.swing.*;
 
 public class PianoApp {
@@ -16,6 +21,11 @@ public class PianoApp {
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
     private static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
     private static final String CLIENT_ID = UUID.randomUUID().toString();
+    private static final Set<String> activePlaybackNotes = ConcurrentHashMap.newKeySet();
+    private static final Map<String, Long> activeNoteEndTimes = new ConcurrentHashMap<>();
+    private static final AtomicLong playbackStart = new AtomicLong();
+    private static final Map<String, String> activeNoteTimbres = new ConcurrentHashMap<>();
+    private static final Map<String, Long> activeNoteStartTimes = new ConcurrentHashMap<>();
 
     private static String TIMBRE = "sine";
     private static Socket socket;
@@ -23,11 +33,16 @@ public class PianoApp {
     private static BufferedReader in;
     private static ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private static boolean isRecording = false;
+    private static boolean isPaused = false;
+    private static final Object playbackLock = new Object();
     private static long recordingStartTime;
     private static String username;
 
     private static JTextArea chatArea;
     private static JTextField chatInput;
+    private static java.util.List<String[]> currentPlaybackEvents = new java.util.ArrayList<>();
+    private static JProgressBar playbackBar;
+    private static JButton playResumeBtn;
 
     static {
         WHITE_KEYS.put("C4", 261.63);  WHITE_KEYS.put("D4", 293.66);  WHITE_KEYS.put("E4", 329.63);
@@ -118,6 +133,14 @@ public class PianoApp {
         JButton loadBtn = new JButton("📂 Load & Play");
         JButton changeTimbreBtn = new JButton("Timbre Selection");
         JButton resetBtn = new JButton("🔄 Reset");
+        playResumeBtn = new JButton("▶ Play/Resume");
+        gbc.gridx = 3;
+        controlPanel.add(playResumeBtn, gbc);
+
+        playbackBar = new JProgressBar(0, 100);
+        playbackBar.setStringPainted(false);
+        gbc.gridx = 4;
+        controlPanel.add(playbackBar, gbc);
 
         stopBtn.setEnabled(false);
 
@@ -146,6 +169,23 @@ public class PianoApp {
         stopBtn.setEnabled(false);
 
         // Control panel actions
+        playResumeBtn.addActionListener(e -> {
+            if (!currentPlaybackEvents.isEmpty()) {
+                if (isPaused) {
+                    togglePause();
+                    playResumeBtn.setText("⏸ Pause");
+                } else if (playbackBar.getValue() > 0 && playbackBar.getValue() < 100) {
+                    togglePause();
+                    playResumeBtn.setText("▶ Resume");
+                } else {
+                    playResumeBtn.setText("⏸ Pause");
+                    new Thread(() -> playEventsWithProgress(currentPlaybackEvents)).start();
+                }
+            } else {
+                JOptionPane.showMessageDialog(null, "No recorded or loaded data to play.");
+            }
+        });
+
         recordBtn.addActionListener(e -> {
             isRecording = true;
             rawEvents.clear();
@@ -159,7 +199,8 @@ public class PianoApp {
             isRecording = false;
             recordBtn.setEnabled(true);
             stopBtn.setEnabled(false);
-        });
+            currentPlaybackEvents = new java.util.ArrayList<>(rawEvents);
+        }); 
 
         saveBtn.addActionListener(e -> saveRecording());
         loadBtn.addActionListener(e -> loadAndPlay());
@@ -307,9 +348,21 @@ public class PianoApp {
         JFileChooser chooser = new JFileChooser();
         if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
             File file = chooser.getSelectedFile();
-            new Thread(() -> playFromFile(file)).start();
+            java.util.List<String[]> loaded = new java.util.ArrayList<>();
+            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                String header = reader.readLine();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String[] parts = line.split(",");
+                    if (parts.length == 4) loaded.add(parts);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            currentPlaybackEvents = loaded;
         }
     }
+    
 
     private static void changeTimbre() {
         String[] timbres = {
@@ -416,48 +469,178 @@ public class PianoApp {
         }
     }
 
-    private static void playFromFile(File file) {
-        java.util.List<String[]> notes = new java.util.ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String header = reader.readLine(); // Skip header
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.split(",");
-                if (parts.length == 4) notes.add(parts);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+    private static void playEventsWithProgress(List<String[]> events) {
+        if (events.isEmpty()) return;
+    
+        long maxEnd = 0;
+        for (String[] e : events) {
+            long end = Long.parseLong(e[2]);
+            if (end > maxEnd) maxEnd = end;
         }
+        final long totalDuration = maxEnd;
     
-        long startTime = System.currentTimeMillis();
-        for (String[] entry : notes) {
-            String note = entry[0];
-            long start = Long.parseLong(entry[1]);
-            long end = Long.parseLong(entry[2]);
-            String timbre = entry[3];
+        playbackStart.set(System.currentTimeMillis());
+        boolean[] notePlayed = new boolean[events.size()];
     
-            new Thread(() -> {
+        new Thread(() -> {
+            while (true) {
+                long logicalTime = System.currentTimeMillis() - playbackStart.get();
+    
+                synchronized (playbackLock) {
+                    if (isPaused) {
+                        try {
+                            playbackLock.wait();
+                        } catch (InterruptedException ignored) {}
+                    }
+                }
+    
+                for (int i = 0; i < events.size(); i++) {
+                    if (notePlayed[i]) continue;
+    
+                    String[] evt = events.get(i);
+                    final String note = evt[0];
+                    final long start = Long.parseLong(evt[1]);
+                    final long end = Long.parseLong(evt[2]);
+                    final String timbre = evt[3];
+    
+                    if (logicalTime >= start) {
+                        notePlayed[i] = true;
+    
+                        double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
+                        if (freq > 0) {
+                            ToneGenerator.playToneContinuous(freq, note, timbre);
+                            pressCount.put(note, 1);
+                            activePlaybackNotes.add(note);
+                            activeNoteStartTimes.put(note, logicalTime);
+                            activeNoteEndTimes.put(note, end);
+                            activeNoteTimbres.put(note, timbre);
+    
+                            JButton key = keyButtons.get(note);
+                            if (key != null) {
+                                SwingUtilities.invokeLater(() -> key.setBackground(Color.YELLOW));
+                            }
+    
+                            // schedule stopping
+                            long duration = end - start;
+                            new Thread(() -> {
+                                try {
+                                    Thread.sleep(duration - (logicalTime - start));
+                                } catch (InterruptedException ignored) {}
+    
+                                ToneGenerator.stopTone(note);
+                                pressCount.remove(note);
+                                activePlaybackNotes.remove(note);
+                                activeNoteStartTimes.remove(note);
+                                activeNoteEndTimes.remove(note);
+                                activeNoteTimbres.remove(note);
+    
+                                JButton btn = keyButtons.get(note);
+                                if (btn != null) {
+                                    SwingUtilities.invokeLater(() ->
+                                        btn.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
+                                }
+                            }).start();
+                        }
+                    }
+                }
+    
+                // update progress bar
+                int percent = (int) (100.0 * logicalTime / totalDuration);
+                SwingUtilities.invokeLater(() -> playbackBar.setValue(Math.min(percent, 100)));
+    
+                if (logicalTime >= totalDuration && activePlaybackNotes.isEmpty()) break;
+    
                 try {
-                    long waitBeforeStart = start - (System.currentTimeMillis() - startTime);
-                    if (waitBeforeStart > 0) {
-                        Thread.sleep(waitBeforeStart);
-                    }
-                    double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
-                    if (freq > 0) {
-                        ToneGenerator.playToneContinuous(freq, note, timbre);
-                        JButton key = keyButtons.get(note);
-                        if (key != null) key.setBackground(Color.YELLOW);
-                    }
-    
-                    long duration = end - start;
-                    Thread.sleep(duration);
-    
-                    ToneGenerator.stopTone(note);
-                    JButton key = keyButtons.get(note);
-                    if (key != null) key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
+                    Thread.sleep(10);
                 } catch (InterruptedException ignored) {}
-            }).start();
-        }
+            }
+    
+            SwingUtilities.invokeLater(() -> playbackBar.setValue(0));
+        }).start();
     }
 
+    private static void togglePause() {
+        synchronized (playbackLock) {
+            isPaused = !isPaused;
+    
+            if (isPaused) {
+                // === PAUSE ===
+                long logicalNow = System.currentTimeMillis() - playbackStart.get();
+    
+                // Clear and recapture active notes
+                activePlaybackNotes.clear();
+                for (String note : keyButtons.keySet()) {
+                    if (pressCount.containsKey(note)) {
+                        // Mark as active
+                        activePlaybackNotes.add(note);
+    
+                        // Adjust remaining time
+                        long start = activeNoteStartTimes.getOrDefault(note, logicalNow);
+                        long end = activeNoteEndTimes.getOrDefault(note, logicalNow + 1000);
+                        long played = logicalNow - start;
+                        long newRemaining = Math.max(0, end - logicalNow);
+    
+                        // Set new adjusted end time
+                        activeNoteEndTimes.put(note, logicalNow + newRemaining);
+                        activeNoteStartTimes.put(note, logicalNow); // reset to now
+    
+                        // Stop tone immediately
+                        ToneGenerator.stopTone(note);
+                        JButton key = keyButtons.get(note);
+                        if (key != null) {
+                            key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
+                        }
+                    }
+                }
+    
+                SwingUtilities.invokeLater(() -> playResumeBtn.setText("▶ Resume"));
+    
+            } else {
+                // === RESUME ===
+                long logicalNow = System.currentTimeMillis() - playbackStart.get();
+    
+                for (String note : new HashSet<>(activePlaybackNotes)) {
+                    long endTime = activeNoteEndTimes.getOrDefault(note, logicalNow + 500);
+                    long remaining = endTime - logicalNow;
+                    String timbre = activeNoteTimbres.getOrDefault(note, TIMBRE);
+    
+                    if (remaining > 0) {
+                        double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
+                        if (freq > 0) {
+                            ToneGenerator.playToneContinuous(freq, note, timbre);
+                            JButton key = keyButtons.get(note);
+                            if (key != null) key.setBackground(Color.YELLOW);
+                            pressCount.put(note, 1);
+                        }
+    
+                        new Thread(() -> {
+                            try {
+                                Thread.sleep(remaining);
+                            } catch (InterruptedException ignored) {}
+                            ToneGenerator.stopTone(note);
+                            pressCount.remove(note);
+                            activePlaybackNotes.remove(note);
+                            activeNoteEndTimes.remove(note);
+                            activeNoteStartTimes.remove(note);
+                            activeNoteTimbres.remove(note);
+                            JButton key = keyButtons.get(note);
+                            if (key != null) {
+                                SwingUtilities.invokeLater(() ->
+                                    key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
+                            }
+                        }).start();
+                    } else {
+                        // Already expired
+                        activePlaybackNotes.remove(note);
+                        activeNoteEndTimes.remove(note);
+                        activeNoteStartTimes.remove(note);
+                        activeNoteTimbres.remove(note);
+                    }
+                }
+    
+                SwingUtilities.invokeLater(() -> playResumeBtn.setText("⏸ Pause"));
+                playbackLock.notifyAll();
+            }
+        }
+    }
 }
