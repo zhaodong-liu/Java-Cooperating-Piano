@@ -2,6 +2,8 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -111,7 +113,7 @@ public class PianoApp {
         controlPanel.add(volumeLabel, gbc);
 
         // === Volume Slider (Vertical) ===
-        JSlider volumeSlider = new JSlider(JSlider.VERTICAL, 0, 100, 50);
+        JSlider volumeSlider = new JSlider(JSlider.VERTICAL, 0, 100, 100);
         volumeSlider.setMajorTickSpacing(25);
         volumeSlider.setPaintTicks(true);
         volumeSlider.setPaintLabels(true);
@@ -199,8 +201,15 @@ public class PianoApp {
             isRecording = false;
             recordBtn.setEnabled(true);
             stopBtn.setEnabled(false);
-            currentPlaybackEvents = new java.util.ArrayList<>(rawEvents);
-        }); 
+        
+            currentPlaybackEvents = convertRawEventsToPlaybackFormat(rawEvents);
+        
+            SwingUtilities.invokeLater(() -> {
+                playbackBar.setValue(0);
+                playResumeBtn.setText("▶ Play/Resume");
+                playResumeBtn.setEnabled(true);
+            });
+        });
 
         saveBtn.addActionListener(e -> saveRecording());
         loadBtn.addActionListener(e -> loadAndPlay());
@@ -329,14 +338,9 @@ public class PianoApp {
         if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
             try (PrintWriter writer = new PrintWriter(chooser.getSelectedFile())) {
                 writer.println("note,startTime,endTime,timbre");
-                java.util.Map<String, String[]> noteMap = new java.util.HashMap<>();
-                for (String[] evt : rawEvents) {
-                    if (evt[0].equals("NOTE_ON")) {
-                        noteMap.put(evt[1], evt);
-                    } else if (evt[0].equals("NOTE_OFF") && noteMap.containsKey(evt[1])) {
-                        String[] start = noteMap.remove(evt[1]);
-                        writer.println(evt[1] + "," + start[2] + "," + evt[2] + "," + evt[3]);
-                    }
+                List<String[]> converted = convertRawEventsToPlaybackFormat(rawEvents);
+                for (String[] row : converted) {
+                    writer.println(String.join(",", row));
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
@@ -574,7 +578,10 @@ public class PianoApp {
                 } catch (InterruptedException ignored) {}
             }
     
-            SwingUtilities.invokeLater(() -> playbackBar.setValue(0));
+            SwingUtilities.invokeLater(() -> {
+                playbackBar.setValue(0);
+                playResumeBtn.setText("▶ Play/Resume");
+            });
         }).start();
     }
 
@@ -667,5 +674,26 @@ public class PianoApp {
                 playbackLock.notifyAll();
             }
         }
+    }
+
+    private static List<String[]> convertRawEventsToPlaybackFormat(List<String[]> rawEvents) {
+        List<String[]> result = new ArrayList<>();
+        Map<String, String[]> activeMap = new HashMap<>();
+    
+        for (String[] evt : rawEvents) {
+            if (evt[0].equals("NOTE_ON")) {
+                activeMap.put(evt[1], evt);
+            } else if (evt[0].equals("NOTE_OFF") && activeMap.containsKey(evt[1])) {
+                String[] start = activeMap.remove(evt[1]);
+                result.add(new String[] {
+                    evt[1],       // note
+                    start[2],     // start time
+                    evt[2],       // end time
+                    evt[3]        // timbre
+                });
+            }
+        }
+    
+        return result;
     }
 }
