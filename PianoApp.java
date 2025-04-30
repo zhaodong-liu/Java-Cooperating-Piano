@@ -8,7 +8,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -22,7 +21,6 @@ public class PianoApp {
     private static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
     private static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final String CLIENT_ID = UUID.randomUUID().toString();
     private static final Set<String> activePlaybackNotes = ConcurrentHashMap.newKeySet();
     private static final Map<String, Long> activeNoteEndTimes = new ConcurrentHashMap<>();
     private static final AtomicLong playbackStart = new AtomicLong();
@@ -364,6 +362,7 @@ public class PianoApp {
                 e.printStackTrace();
             }
             currentPlaybackEvents = loaded;
+            JOptionPane.showMessageDialog(null, "File loaded successfully!", "Message", JOptionPane.INFORMATION_MESSAGE);
         }
     }
     
