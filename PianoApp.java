@@ -21,20 +21,14 @@ public class PianoApp {
     private static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
     private static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final Set<String> activePlaybackNotes = ConcurrentHashMap.newKeySet();
-    private static final Map<String, Long> activeNoteEndTimes = new ConcurrentHashMap<>();
-    private static final AtomicLong playbackStart = new AtomicLong();
-    private static final Map<String, String> activeNoteTimbres = new ConcurrentHashMap<>();
-    private static final Map<String, Long> activeNoteStartTimes = new ConcurrentHashMap<>();
 
+    private static PlaybackManager playbackManager;
     private static String TIMBRE = "sine";
     private static Socket socket;
     private static PrintWriter out;
     private static BufferedReader in;
     private static ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private static boolean isRecording = false;
-    private static boolean isPaused = false;
-    private static final Object playbackLock = new Object();
     private static long recordingStartTime;
     private static String username;
 
@@ -133,12 +127,16 @@ public class PianoApp {
         JButton loadBtn = new JButton("📂 Load & Play");
         JButton changeTimbreBtn = new JButton("Timbre Selection");
         JButton resetBtn = new JButton("🔄 Reset");
-        playResumeBtn = new JButton("▶ Play/Resume");
-        gbc.gridx = 3;
-        controlPanel.add(playResumeBtn, gbc);
 
         playbackBar = new JProgressBar(0, 100);
         playbackBar.setStringPainted(false);
+        playResumeBtn = new JButton("▶ Play/Resume");
+        playbackManager = new PlaybackManager(WHITE_KEYS, BLACK_KEYS, keyButtons, playbackBar, playResumeBtn);
+
+        gbc.gridx = 3;
+        controlPanel.add(playResumeBtn, gbc);
+
+
         gbc.gridx = 4;
         controlPanel.add(playbackBar, gbc);
 
@@ -171,15 +169,10 @@ public class PianoApp {
         // Control panel actions
         playResumeBtn.addActionListener(e -> {
             if (!currentPlaybackEvents.isEmpty()) {
-                if (isPaused) {
-                    togglePause();
-                    playResumeBtn.setText("⏸ Pause");
-                } else if (playbackBar.getValue() > 0 && playbackBar.getValue() < 100) {
-                    togglePause();
-                    playResumeBtn.setText("▶ Resume");
+                if (playbackBar.getValue() > 0 && playbackBar.getValue() < 100) {
+                    playbackManager.togglePause();
                 } else {
-                    playResumeBtn.setText("⏸ Pause");
-                    new Thread(() -> playEventsWithProgress(currentPlaybackEvents)).start();
+                    playbackManager.play(currentPlaybackEvents);
                 }
             } else {
                 JOptionPane.showMessageDialog(null, "No recorded or loaded data to play.");
@@ -451,208 +444,7 @@ public class PianoApp {
         }
     }
 
-    private static void playEventsWithProgress(List<String[]> events) {
-        if (events.isEmpty()) return;
-    
-        long maxEnd = 0;
-        for (String[] e : events) {
-            long end = Long.parseLong(e[2]);
-            if (end > maxEnd) maxEnd = end;
-        }
-        final long totalDuration = maxEnd;
-    
-        playbackStart.set(System.currentTimeMillis());
-        boolean[] notePlayed = new boolean[events.size()];
-    
-        new Thread(() -> {
-            while (true) {
-                long logicalTime = System.currentTimeMillis() - playbackStart.get();
-    
-                synchronized (playbackLock) {
-                    if (isPaused) {
-                        try {
-                            playbackLock.wait();
-                        } catch (InterruptedException ignored) {}
-                    }
-                }
-    
-                for (int i = 0; i < events.size(); i++) {
-                    if (notePlayed[i]) continue;
-    
-                    String[] evt = events.get(i);
-                    final String note = evt[0];
-                    final long start = Long.parseLong(evt[1]);
-                    final long end = Long.parseLong(evt[2]);
-                    final String timbre = evt[3];
-    
-                    if (logicalTime >= start) {
-                        notePlayed[i] = true;
-    
-                        double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
-                        if (freq > 0) {
-                            ToneGenerator.playToneContinuous(freq, note, timbre);
-                            pressCount.put(note, 1);
-                            activePlaybackNotes.add(note);
-                            activeNoteStartTimes.put(note, logicalTime);
-                            activeNoteEndTimes.put(note, end);
-                            activeNoteTimbres.put(note, timbre);
-    
-                            JButton key = keyButtons.get(note);
-                            if (key != null) {
-                                SwingUtilities.invokeLater(() -> key.setBackground(Color.YELLOW));
-                            }
-    
-                            // schedule stopping
-                            // schedule stopping with safe remaining time
-                            long duration = end - start;
-                            long alreadyPlayed = logicalTime - start;
-                            long safeSleep = duration - alreadyPlayed;
 
-                            if (safeSleep > 0) {
-                                new Thread(() -> {
-                                    try {
-                                        Thread.sleep(safeSleep);
-                                    } catch (InterruptedException ignored) {}
-
-                                    ToneGenerator.stopTone(note);
-                                    pressCount.remove(note);
-                                    activePlaybackNotes.remove(note);
-                                    activeNoteEndTimes.remove(note);
-                                    activeNoteStartTimes.remove(note);
-                                    activeNoteTimbres.remove(note);
-
-                                    JButton btn = keyButtons.get(note);
-                                    if (btn != null) {
-                                        SwingUtilities.invokeLater(() ->
-                                                btn.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
-                                    }
-                                }).start();
-                            } else {
-                                // Already expired, stop immediately
-                                ToneGenerator.stopTone(note);
-                                pressCount.remove(note);
-                                activePlaybackNotes.remove(note);
-                                activeNoteEndTimes.remove(note);
-                                activeNoteStartTimes.remove(note);
-                                activeNoteTimbres.remove(note);
-                                JButton btn = keyButtons.get(note);
-                                if (btn != null) {
-                                    SwingUtilities.invokeLater(() ->
-                                            btn.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
-                                }
-                            }
-                        }
-                    }
-                }
-    
-                // update progress bar
-                int percent = (int) (100.0 * logicalTime / totalDuration);
-                SwingUtilities.invokeLater(() -> playbackBar.setValue(Math.min(percent, 100)));
-    
-                if (logicalTime >= totalDuration && activePlaybackNotes.isEmpty()) break;
-    
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException ignored) {}
-            }
-    
-            SwingUtilities.invokeLater(() -> {
-                playbackBar.setValue(0);
-                playResumeBtn.setText("▶ Play/Resume");
-            });
-        }).start();
-    }
-
-    private static void togglePause() {
-        synchronized (playbackLock) {
-            isPaused = !isPaused;
-    
-            long logicalNow = System.currentTimeMillis() - playbackStart.get();
-    
-            if (isPaused) {
-                // === PAUSE ===
-                activePlaybackNotes.clear();
-    
-                for (String note : keyButtons.keySet()) {
-                    if (!pressCount.containsKey(note)) continue;
-    
-                    long start = activeNoteStartTimes.getOrDefault(note, logicalNow);
-                    long end = activeNoteEndTimes.getOrDefault(note, logicalNow + 1000);
-    
-                    if (logicalNow >= end) {
-                        // Note 已经结束，跳过
-                        continue;
-                    }
-    
-                    long remaining = end - logicalNow;
-    
-                    // 记录该 note 状态
-                    activePlaybackNotes.add(note);
-                    activeNoteEndTimes.put(note, logicalNow + remaining);
-                    activeNoteStartTimes.put(note, logicalNow); // reset start to now
-                    activeNoteTimbres.putIfAbsent(note, TIMBRE);
-    
-                    // Stop it
-                    ToneGenerator.stopTone(note);
-                    JButton key = keyButtons.get(note);
-                    if (key != null) {
-                        key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
-                    }
-                }
-    
-                SwingUtilities.invokeLater(() -> playResumeBtn.setText("▶ Resume"));
-    
-            } else {
-                // === RESUME ===
-                for (String note : new HashSet<>(activePlaybackNotes)) {
-                    long end = activeNoteEndTimes.getOrDefault(note, logicalNow + 100);
-                    long remaining = end - logicalNow;
-    
-                    if (remaining <= 0) {
-                        // 已结束，跳过
-                        activePlaybackNotes.remove(note);
-                        activeNoteEndTimes.remove(note);
-                        activeNoteStartTimes.remove(note);
-                        activeNoteTimbres.remove(note);
-                        continue;
-                    }
-    
-                    String timbre = activeNoteTimbres.getOrDefault(note, TIMBRE);
-                    double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
-    
-                    if (freq > 0) {
-                        ToneGenerator.playToneContinuous(freq, note, timbre);
-                        JButton key = keyButtons.get(note);
-                        if (key != null) key.setBackground(Color.YELLOW);
-                        pressCount.put(note, 1);
-                    }
-    
-                    new Thread(() -> {
-                        try {
-                            if (remaining > 0) {
-                                Thread.sleep(remaining);
-                            }
-                        } catch (InterruptedException ignored) {}
-                    
-                        ToneGenerator.stopTone(note);
-                        pressCount.remove(note);
-                        activePlaybackNotes.remove(note);
-                        activeNoteEndTimes.remove(note);
-                        activeNoteStartTimes.remove(note);
-                        activeNoteTimbres.remove(note);
-                        JButton key = keyButtons.get(note);
-                        if (key != null) {
-                            SwingUtilities.invokeLater(() ->
-                                    key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE));
-                        }
-                    }).start();
-                }
-    
-                SwingUtilities.invokeLater(() -> playResumeBtn.setText("⏸ Pause"));
-                playbackLock.notifyAll();
-            }
-        }
-    }
 
     private static List<String[]> convertRawEventsToPlaybackFormat(List<String[]> rawEvents) {
         List<String[]> result = new ArrayList<>();
