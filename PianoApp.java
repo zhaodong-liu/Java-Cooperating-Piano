@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
-
+import java.util.function.Supplier;
 
 import javax.swing.*;
 
@@ -248,86 +248,65 @@ public class PianoApp {
         new Thread(PianoApp::listenForMessages).start();
     }
 
-    private static JButton createKey(String note, double freq, boolean isBlack, int x, int y, int w, int h) {
-        JButton key = new JButton();
-        key.setBounds(x, y, w, h);
-        key.setBackground(isBlack ? Color.BLACK : Color.WHITE);
-        key.setOpaque(true);
-        key.setBorder(BorderFactory.createLineBorder(Color.GRAY));
-        keyButtons.put(note, key);
-
-        key.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
-                int count = pressCount.getOrDefault(note, 0);
-                if (count == 0) {
-                    ToneGenerator.playToneContinuous(freq, note, TIMBRE);
-                }
-                pressCount.put(note, count + 1);
-                sendMessage("NOTE_ON," + note + "," + TIMBRE);
-
-                long now = System.currentTimeMillis();
-                if (isRecording) {
-                    long offset = now - recordingStartTime;
-                    rawEvents.add(new String[]{"NOTE_ON", note, String.valueOf(offset), TIMBRE});
-                    activeNotes.put(note, offset);
-                }
-
-                key.setBackground(isBlack ? Color.GRAY : Color.CYAN);
-            }
-
-            public void mouseReleased(MouseEvent e) {
-                int count = pressCount.getOrDefault(note, 1) - 1;
-                if (count <= 0) {
-                    pressCount.remove(note);
-                    ToneGenerator.stopTone(note);
-                } else {
-                    pressCount.put(note, count);
-                }
-
-                sendMessage("NOTE_OFF," + note + "," + TIMBRE);
-
-                long now = System.currentTimeMillis();
-                if (isRecording && activeNotes.containsKey(note)) {
-                    long offset = now - recordingStartTime;
-                    rawEvents.add(new String[]{"NOTE_OFF", note, String.valueOf(offset), TIMBRE});
-                    activeNotes.remove(note);
-                }
-
-                key.setBackground(isBlack ? Color.BLACK : Color.WHITE);
-            }
-        });
-
-        return key;
-    }
 
     private static JLayeredPane createPiano() {
         JLayeredPane layeredPane = new JLayeredPane();
         layeredPane.setPreferredSize(new Dimension(WHITE_KEYS.size() * 60, 300));
-
-        int x = 0;
+    
+        Supplier<Long> recordingStartTimeSupplier = () -> recordingStartTime;
+    
+        int whiteKeyIndex = 0;
+        Map<String, Integer> whiteKeyPositions = new HashMap<>();
+    
+        // 🎹 White keys
         for (String note : WHITE_KEYS.keySet()) {
             double freq = WHITE_KEYS.get(note);
-            JButton key = createKey(note, freq, false, x, 0, 60, 300);
+            int x = whiteKeyIndex * 60;
+            whiteKeyPositions.put(note, whiteKeyIndex);
+            JButton key = KeyFactory.createKey(
+                note, freq, false,
+                x, 0, 60, 300,
+                keyButtons, pressCount, rawEvents, activeNotes,
+                recordingStartTimeSupplier,
+                () -> isRecording,
+                () -> TIMBRE,
+                PianoApp::sendMessage,
+                ToneGenerator::stopTone,
+                n -> ToneGenerator.playToneContinuous(freq, n, TIMBRE)
+            );
             layeredPane.add(key, JLayeredPane.DEFAULT_LAYER);
-            x += 60;
+            whiteKeyIndex++;
         }
-
-        java.util.Map<String, Integer> blackOffsets = java.util.Map.ofEntries(
-            java.util.Map.entry("C#4", 0), java.util.Map.entry("D#4", 1), java.util.Map.entry("F#4", 3),
-            java.util.Map.entry("G#4", 4), java.util.Map.entry("A#4", 5), java.util.Map.entry("C#5", 7),
-            java.util.Map.entry("D#5", 8), java.util.Map.entry("F#5", 10), java.util.Map.entry("G#5", 11),
-            java.util.Map.entry("A#5", 12), java.util.Map.entry("C#6", 14), java.util.Map.entry("D#6", 15),
-            java.util.Map.entry("F#6", 17), java.util.Map.entry("G#6", 18), java.util.Map.entry("A#6", 19)
+    
+        // 🎹 Black keys
+        Map<String, Integer> blackOffsets = Map.ofEntries(
+            Map.entry("C#4", 0), Map.entry("D#4", 1), Map.entry("F#4", 3),
+            Map.entry("G#4", 4), Map.entry("A#4", 5), Map.entry("C#5", 7),
+            Map.entry("D#5", 8), Map.entry("F#5", 10), Map.entry("G#5", 11),
+            Map.entry("A#5", 12), Map.entry("C#6", 14), Map.entry("D#6", 15),
+            Map.entry("F#6", 17), Map.entry("G#6", 18), Map.entry("A#6", 19)
         );
-
+    
         for (var entry : blackOffsets.entrySet()) {
             String note = entry.getKey();
             double freq = BLACK_KEYS.get(note);
-            int bx = (entry.getValue() + 1) * 60 - 20;
-            JButton key = createKey(note, freq, true, bx, 0, 40, 180);
+            int whiteIndex = entry.getValue();
+            int bx = (whiteIndex + 1) * 60 - 20;
+    
+            JButton key = KeyFactory.createKey(
+                note, freq, true,
+                bx, 0, 40, 180,
+                keyButtons, pressCount, rawEvents, activeNotes,
+                recordingStartTimeSupplier,
+                () -> isRecording,
+                () -> TIMBRE,
+                PianoApp::sendMessage,
+                ToneGenerator::stopTone,
+                n -> ToneGenerator.playToneContinuous(freq, n, TIMBRE)
+            );
             layeredPane.add(key, JLayeredPane.PALETTE_LAYER);
         }
-
+    
         return layeredPane;
     }
 
