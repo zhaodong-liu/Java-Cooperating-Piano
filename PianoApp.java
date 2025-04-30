@@ -241,7 +241,6 @@ public class PianoApp {
         new Thread(PianoApp::listenForMessages).start();
     }
 
-
     private static JLayeredPane createPiano() {
         JLayeredPane layeredPane = new JLayeredPane();
         layeredPane.setPreferredSize(new Dimension(WHITE_KEYS.size() * 60, 300));
@@ -250,9 +249,10 @@ public class PianoApp {
     
         int whiteKeyIndex = 0;
         Map<String, Integer> whiteKeyPositions = new HashMap<>();
+        List<String> whiteNoteList = new ArrayList<>(WHITE_KEYS.keySet());
     
         // 🎹 White keys
-        for (String note : WHITE_KEYS.keySet()) {
+        for (String note : whiteNoteList) {
             double freq = WHITE_KEYS.get(note);
             int x = whiteKeyIndex * 60;
             whiteKeyPositions.put(note, whiteKeyIndex);
@@ -271,23 +271,27 @@ public class PianoApp {
             whiteKeyIndex++;
         }
     
-        // 🎹 Black keys
-        Map<String, Integer> blackOffsets = Map.ofEntries(
-            Map.entry("C#4", 0), Map.entry("D#4", 1), Map.entry("F#4", 3),
-            Map.entry("G#4", 4), Map.entry("A#4", 5), Map.entry("C#5", 7),
-            Map.entry("D#5", 8), Map.entry("F#5", 10), Map.entry("G#5", 11),
-            Map.entry("A#5", 12), Map.entry("C#6", 14), Map.entry("D#6", 15),
-            Map.entry("F#6", 17), Map.entry("G#6", 18), Map.entry("A#6", 19)
-        );
+        // 🎹 Black keys (derived dynamically)
+        for (String blackNote : BLACK_KEYS.keySet()) {
+            double freq = BLACK_KEYS.get(blackNote);
     
-        for (var entry : blackOffsets.entrySet()) {
-            String note = entry.getKey();
-            double freq = BLACK_KEYS.get(note);
-            int whiteIndex = entry.getValue();
+            // Find base note (e.g., C#4 → C4)
+            String baseWhite = blackNote.replace("#", "");
+            int whiteIndex = -1;
+            for (int i = 0; i < whiteNoteList.size(); i++) {
+                if (whiteNoteList.get(i).startsWith(baseWhite)) {
+                    whiteIndex = i;
+                    break;
+                }
+            }
+    
+            // Skip if index not found or if it's the last white key (no next key to center between)
+            if (whiteIndex == -1 || whiteIndex + 1 >= whiteNoteList.size()) continue;
+    
             int bx = (whiteIndex + 1) * 60 - 20;
     
             JButton key = KeyFactory.createKey(
-                note, freq, true,
+                blackNote, freq, true,
                 bx, 0, 40, 180,
                 keyButtons, pressCount, rawEvents, activeNotes,
                 recordingStartTimeSupplier,
