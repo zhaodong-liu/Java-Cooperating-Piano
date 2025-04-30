@@ -83,51 +83,66 @@ public class PianoApp {
         JPanel controlPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.weightx = 1.0;
+        gbc.anchor = GridBagConstraints.NORTHWEST;
+        gbc.fill = GridBagConstraints.BOTH;
 
+        // === Volume Label ===
+        JLabel volumeLabel = new JLabel("Volume", SwingConstants.CENTER);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.gridheight = 1;
+        gbc.weightx = 0;
+        gbc.weighty = 0;
+        controlPanel.add(volumeLabel, gbc);
+
+        // === Volume Slider (Vertical) ===
+        JSlider volumeSlider = new JSlider(JSlider.VERTICAL, 0, 100, 50);
+        volumeSlider.setMajorTickSpacing(25);
+        volumeSlider.setPaintTicks(true);
+        volumeSlider.setPaintLabels(true);
+        volumeSlider.setPreferredSize(new Dimension(50, 200));
+        volumeSlider.addChangeListener(e -> {
+            double volume = volumeSlider.getValue() / 100.0;
+            ToneGenerator.setGlobalVolume(volume);
+        });
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridheight = 3;
+        gbc.weighty = 1.0;
+        controlPanel.add(volumeSlider, gbc);
+
+        // === Buttons ===
         JButton recordBtn = new JButton("🎙 Start Recording");
         JButton stopBtn = new JButton("⏹ Stop Recording");
         JButton saveBtn = new JButton("💾 Save Recording");
         JButton loadBtn = new JButton("📂 Load & Play");
         JButton changeTimbreBtn = new JButton("Timbre Selection");
         JButton resetBtn = new JButton("🔄 Reset");
-        JLabel volumeLabel = new JLabel("Volume:");
-        JSlider volumeSlider = new JSlider(0, 100, 50); // min=0%, max=100%, default=50%
-        volumeSlider.addChangeListener(e -> {
-            double volume = volumeSlider.getValue() / 100.0;
-            ToneGenerator.setGlobalVolume(volume);
-        });
 
-        // Row 1: Volume
-        gbc.gridx = 0;
+        stopBtn.setEnabled(false);
+
+        // Row 1: Record, Stop, Save, Load
+        gbc.gridheight = 1;
+        gbc.weightx = 1.0;
+        gbc.weighty = 0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
         gbc.gridy = 0;
-        controlPanel.add(volumeLabel, gbc);
-
         gbc.gridx = 1;
-        gbc.gridwidth = 4;
-        controlPanel.add(volumeSlider, gbc);
-        gbc.gridwidth = 1;
-
-        // Row 2: Record, Stop, Save, Load
-        gbc.gridy = 1;
-        gbc.gridx = 0;
         controlPanel.add(recordBtn, gbc);
-        gbc.gridx = 1;
-        controlPanel.add(stopBtn, gbc);
         gbc.gridx = 2;
-        controlPanel.add(saveBtn, gbc);
+        controlPanel.add(stopBtn, gbc);
         gbc.gridx = 3;
+        controlPanel.add(saveBtn, gbc);
+        gbc.gridx = 4;
         controlPanel.add(loadBtn, gbc);
 
-        // Row 3: Timbre, Reset
-        gbc.gridy = 2;
-        gbc.gridx = 0;
-        controlPanel.add(changeTimbreBtn, gbc);
+        // Row 2: Timbre, Reset
+        gbc.gridy = 1;
         gbc.gridx = 1;
+        controlPanel.add(changeTimbreBtn, gbc);
+        gbc.gridx = 2;
         controlPanel.add(resetBtn, gbc);
-
         stopBtn.setEnabled(false);
 
         // Control panel actions
