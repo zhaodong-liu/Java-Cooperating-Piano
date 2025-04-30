@@ -18,9 +18,11 @@ public class ToneGenerator {
     }
 
     public static void loadPianoSamples() {
-        String[] notes = {"C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4",
-                          "C5", "C#5", "D5", "D#5", "E5", "F5", "F#5", "G5", "G#5", "A5", "A#5", "B5",
-                          "C6", "C#6", "D6", "D#6", "E6", "F6", "F#6", "G6", "G#6", "A6", "A#6", "B6", "C7"};
+        String[] notes = {
+            "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4",
+            "C5", "C#5", "D5", "D#5", "E5", "F5", "F#5", "G5", "G#5", "A5", "A#5", "B5",
+            "C6", "C#6", "D6", "D#6", "E6", "F6", "F#6", "G6", "G#6", "A6", "A#6", "B6", "C7"
+        };
         for (String note : notes) {
             try {
                 File file = new File("piano_samples/" + note + ".wav");
@@ -56,13 +58,8 @@ public class ToneGenerator {
                     double phase = 0.0;
                     double phaseIncrement = 2.0 * Math.PI * freq / SAMPLE_RATE;
 
-                    int smallChunkSize = 256; // 🔥 very small buffer = low latency
-                    int fadeSamples = (int)(SAMPLE_RATE * 0.005);
-
+                    int smallChunkSize = 256;
                     boolean wasPressed = false;
-                    boolean fadingIn = false;
-                    boolean fadingOut = false;
-                    double fadeVolume = 1.0;
 
                     while (true) {
                         String timbre = currentTimbre.getOrDefault(key, "sine");
@@ -71,11 +68,9 @@ public class ToneGenerator {
                             if (!wasPressed) {
                                 line.start();
                                 wasPressed = true;
-                                fadingIn = true;
-                                fadeVolume = 0.0;
 
                                 if ("piano".equals(timbre)) {
-                                    pianoOffsets.put(key, 0); // Reset piano sample offset when pressed
+                                    pianoOffsets.put(key, 0);
                                 }
                             }
 
@@ -95,16 +90,7 @@ public class ToneGenerator {
                             } else {
                                 for (int i = 0; i < smallChunkSize; i++) {
                                     double wave = generateWave(phase, timbre);
-
-                                    if (fadingIn) {
-                                        fadeVolume += 1.0 / fadeSamples;
-                                        if (fadeVolume >= 1.0) {
-                                            fadeVolume = 1.0;
-                                            fadingIn = false;
-                                        }
-                                    }
-
-                                    short sample = (short) (wave * globalVolume * fadeVolume * Short.MAX_VALUE);
+                                    short sample = (short) (wave * globalVolume * Short.MAX_VALUE);
                                     buffer[2 * i] = (byte) (sample & 0xff);
                                     buffer[2 * i + 1] = (byte) ((sample >> 8) & 0xff);
 
@@ -121,9 +107,8 @@ public class ToneGenerator {
                                 line.stop();
                                 line.flush();
                                 wasPressed = false;
-                                fadingIn = false;
                             }
-                            Thread.sleep(5); // avoid CPU busy waiting
+                            Thread.sleep(5);
                         }
                     }
                 } catch (Exception e) {
