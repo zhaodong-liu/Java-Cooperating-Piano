@@ -1,10 +1,10 @@
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import javax.swing.*;
 
 public class KeyFactory {
 
@@ -22,7 +22,9 @@ public class KeyFactory {
             Supplier<String> timbre,
             Consumer<String> sendMessage,
             Consumer<String> stopTone,
-            Consumer<String> playTone
+            Consumer<String> playTone,
+            Supplier<Boolean> isAutoChordEnabled,
+            Supplier<String> chordType
     ) {
         JButton key = new JButton();
         key.setBounds(x, y, width, height);
@@ -33,40 +35,58 @@ public class KeyFactory {
 
         key.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) {
-                int count = pressCount.getOrDefault(note, 0);
-                if (count == 0) {
-                    playTone.accept(note);
-                }
-                pressCount.put(note, count + 1);
-                sendMessage.accept("NOTE_ON," + note + "," + timbre.get());
+                List<String> notesToPlay = isAutoChordEnabled.get()
+                        ? ChordGenerator.buildChord(note, chordType.get())
+                        : List.of(note);
 
-                if (isRecording.get()) {
-                    long offset = System.currentTimeMillis() - recordingStartTime.get();
-                    rawEvents.add(new String[]{"NOTE_ON", note, String.valueOf(offset), timbre.get()});
-                    activeNotes.put(note, offset);
-                }
+                for (String n : notesToPlay) {
+                    int count = pressCount.getOrDefault(n, 0);
+                    if (count == 0) {
+                        playTone.accept(n);
+                    }
+                    pressCount.put(n, count + 1);
+                    sendMessage.accept("NOTE_ON," + n + "," + timbre.get());
 
-                key.setBackground(isBlack ? Color.GRAY : Color.CYAN);
+                    if (isRecording.get()) {
+                        long offset = System.currentTimeMillis() - recordingStartTime.get();
+                        rawEvents.add(new String[]{"NOTE_ON", n, String.valueOf(offset), timbre.get()});
+                        activeNotes.put(n, offset);
+                    }
+
+                    JButton btn = keyButtons.get(n);
+                    if (btn != null) {
+                        btn.setBackground(n.contains("#") ? Color.GRAY : Color.CYAN);
+                    }
+                }
             }
 
             public void mouseReleased(MouseEvent e) {
-                int count = pressCount.getOrDefault(note, 1) - 1;
-                if (count <= 0) {
-                    pressCount.remove(note);
-                    stopTone.accept(note);
-                } else {
-                    pressCount.put(note, count);
+                List<String> notesToStop = isAutoChordEnabled.get()
+                        ? ChordGenerator.buildChord(note, chordType.get())
+                        : List.of(note);
+
+                for (String n : notesToStop) {
+                    int count = pressCount.getOrDefault(n, 1) - 1;
+                    if (count <= 0) {
+                        pressCount.remove(n);
+                        stopTone.accept(n);
+                    } else {
+                        pressCount.put(n, count);
+                    }
+
+                    sendMessage.accept("NOTE_OFF," + n + "," + timbre.get());
+
+                    if (isRecording.get() && activeNotes.containsKey(n)) {
+                        long offset = System.currentTimeMillis() - recordingStartTime.get();
+                        rawEvents.add(new String[]{"NOTE_OFF", n, String.valueOf(offset), timbre.get()});
+                        activeNotes.remove(n);
+                    }
+
+                    JButton btn = keyButtons.get(n);
+                    if (btn != null) {
+                        btn.setBackground(n.contains("#") ? Color.BLACK : Color.WHITE);
+                    }
                 }
-
-                sendMessage.accept("NOTE_OFF," + note + "," + timbre.get());
-
-                if (isRecording.get() && activeNotes.containsKey(note)) {
-                    long offset = System.currentTimeMillis() - recordingStartTime.get();
-                    rawEvents.add(new String[]{"NOTE_OFF", note, String.valueOf(offset), timbre.get()});
-                    activeNotes.remove(note);
-                }
-
-                key.setBackground(isBlack ? Color.BLACK : Color.WHITE);
             }
         });
 

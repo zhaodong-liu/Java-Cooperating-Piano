@@ -1,7 +1,7 @@
-import javax.swing.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.swing.*;
 
 public class PlaybackManager {
     private final Map<String, Double> whiteKeys;
@@ -54,7 +54,7 @@ public class PlaybackManager {
     
             if (isPaused) {
                 pauseStartTime = System.currentTimeMillis();
-                SwingUtilities.invokeLater(() -> playResumeBtn.setText("▶ Resume"));
+                SwingUtilities.invokeLater(() -> playResumeBtn.setText("▶"));
     
                 // === Stop all currently playing notes ===
                 long logicalNow = pauseStartTime - playbackStart.get() - totalPausedTime;
@@ -79,7 +79,7 @@ public class PlaybackManager {
                 long resumeTime = System.currentTimeMillis();
                 totalPausedTime += (resumeTime - pauseStartTime);
                 pauseStartTime = 0;
-                SwingUtilities.invokeLater(() -> playResumeBtn.setText("⏸ Pause"));
+                SwingUtilities.invokeLater(() -> playResumeBtn.setText("⏸"));
     
                 // === Resume all paused notes ===
                 long logicalNow = resumeTime - playbackStart.get() - totalPausedTime;
@@ -191,7 +191,7 @@ public class PlaybackManager {
 
         SwingUtilities.invokeLater(() -> {
             playbackBar.setValue(0);
-            playResumeBtn.setText("▶ Play/Resume");
+            playResumeBtn.setText("▶");
         });
     }
 

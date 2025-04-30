@@ -28,7 +28,8 @@ public class PianoApp {
     private static boolean isRecording = false;
     private static long recordingStartTime;
     private static String username;
-
+    private static JCheckBox autoChordCheck;
+    private static JComboBox<String> chordTypeSelector;
     private static JTextArea chatArea;
     private static JTextField chatInput;
     private static java.util.List<String[]> currentPlaybackEvents = new java.util.ArrayList<>();
@@ -56,52 +57,40 @@ public class PianoApp {
         String serverIP = JOptionPane.showInputDialog("Enter server IP:", "localhost");
         String portStr = JOptionPane.showInputDialog("Enter port:", "5190");
         username = JOptionPane.showInputDialog("Enter your username:");
-
+    
         socket = new Socket(serverIP, Integer.parseInt(portStr));
         out = new PrintWriter(socket.getOutputStream(), true);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out.println(username);
-
+    
         ToneGenerator.loadPianoSamples();
-        
-        // Initialize all key threads once
+    
         Set<String> allKeys = new HashSet<>();
         allKeys.addAll(WHITE_KEYS.keySet());
         allKeys.addAll(BLACK_KEYS.keySet());
         ToneGenerator.initializeKeys(allKeys);
-
-        // Constants for layout
+    
         int whiteKeyWidth = 60;
-        int numberOfWhiteKeys = WHITE_KEYS.size(); // Dynamically from your map
+        int numberOfWhiteKeys = WHITE_KEYS.size();
         int pianoWidth = whiteKeyWidth * numberOfWhiteKeys;
-        int pianoHeight = 300;  // From your createPiano()
-
-        // Create frame
+        int pianoHeight = 300;
+    
         JFrame frame = new JFrame("Cooperating Piano 🎹");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         frame.setResizable(false);
-
-        // Create top panel (Control buttons + Chat)
-        JPanel topPanel = new JPanel(new GridLayout(1, 2));
-
-        // --- Control Panel ---
-        JPanel controlPanel = new JPanel(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.anchor = GridBagConstraints.NORTHWEST;
-        gbc.fill = GridBagConstraints.BOTH;
-
-        // === Volume Label ===
-        JLabel volumeLabel = new JLabel("Volume", SwingConstants.CENTER);
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.gridheight = 1;
-        gbc.weightx = 0;
-        gbc.weighty = 0;
-        controlPanel.add(volumeLabel, gbc);
-
-        // === Volume Slider (Vertical) ===
+    
+        JPanel topPanel = new JPanel(new BorderLayout());
+    
+        // === Controls Panel ===
+        JPanel controlPanel = new JPanel(new BorderLayout());
+        controlPanel.setPreferredSize(new Dimension((int)(pianoWidth * 2.0 / 3), 300));
+    
+        // === Volume Panel (Left side) ===
+        JPanel volumePanel = new JPanel();
+        volumePanel.setBorder(BorderFactory.createTitledBorder("Volume"));
+        volumePanel.setLayout(new BoxLayout(volumePanel, BoxLayout.Y_AXIS));
+        JLabel volumeLabel = new JLabel("", SwingConstants.CENTER);
         JSlider volumeSlider = new JSlider(JSlider.VERTICAL, 0, 100, 100);
         volumeSlider.setMajorTickSpacing(25);
         volumeSlider.setPaintTicks(true);
@@ -111,100 +100,64 @@ public class PianoApp {
             double volume = volumeSlider.getValue() / 100.0;
             ToneGenerator.setGlobalVolume(volume);
         });
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        gbc.gridheight = 3;
-        gbc.weighty = 1.0;
-        controlPanel.add(volumeSlider, gbc);
-
-        // === Buttons ===
+        volumePanel.add(volumeLabel);
+        volumePanel.add(volumeSlider);
+    
+        // === Functional Controls (Center of control panel) ===
+        JPanel functionGroupPanel = new JPanel();
+        functionGroupPanel.setLayout(new BoxLayout(functionGroupPanel, BoxLayout.Y_AXIS));
+    
+        // --- Recording & Playback ---
+        JPanel recordPanel = new JPanel(new GridLayout(2, 3, 5, 5));
+        recordPanel.setBorder(BorderFactory.createTitledBorder("Recording & Playback"));
         JButton recordBtn = new JButton("🎙 Start Recording");
         JButton stopBtn = new JButton("⏹ Stop Recording");
         JButton saveBtn = new JButton("💾 Save Recording");
         JButton loadBtn = new JButton("📂 Load & Play");
-        JButton changeTimbreBtn = new JButton("Timbre Selection");
         JButton resetBtn = new JButton("🔄 Reset");
-
+        playResumeBtn = new JButton("▶");
         playbackBar = new JProgressBar(0, 100);
         playbackBar.setStringPainted(false);
-        playResumeBtn = new JButton("▶ Play/Resume");
         playbackManager = new PlaybackManager(WHITE_KEYS, BLACK_KEYS, keyButtons, playbackBar, playResumeBtn);
-
-        gbc.gridx = 3;
-        controlPanel.add(playResumeBtn, gbc);
-
-
-        gbc.gridx = 4;
-        controlPanel.add(playbackBar, gbc);
-
         stopBtn.setEnabled(false);
-
-        // Row 1: Record, Stop, Save, Load
-        gbc.gridheight = 1;
-        gbc.weightx = 1.0;
-        gbc.weighty = 0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-
-        gbc.gridy = 0;
-        gbc.gridx = 1;
-        controlPanel.add(recordBtn, gbc);
-        gbc.gridx = 2;
-        controlPanel.add(stopBtn, gbc);
-        gbc.gridx = 3;
-        controlPanel.add(saveBtn, gbc);
-        gbc.gridx = 4;
-        controlPanel.add(loadBtn, gbc);
-
-        // Row 2: Timbre, Reset
-        gbc.gridy = 1;
-        gbc.gridx = 1;
-        controlPanel.add(changeTimbreBtn, gbc);
-        gbc.gridx = 2;
-        controlPanel.add(resetBtn, gbc);
-
-        // Control panel actions
-        playResumeBtn.addActionListener(e -> {
-            if (!currentPlaybackEvents.isEmpty()) {
-                if (playbackBar.getValue() > 0 && playbackBar.getValue() < 100) {
-                    playbackManager.togglePause();
-                } else {
-                    playbackManager.play(currentPlaybackEvents);
-                }
-            } else {
-                JOptionPane.showMessageDialog(null, "No recorded or loaded data to play.");
-            }
-        });
-
-        recordBtn.addActionListener(e -> {
-            isRecording = true;
-            rawEvents.clear();
-            activeNotes.clear();
-            recordingStartTime = System.currentTimeMillis();
-            recordBtn.setEnabled(false);
-            stopBtn.setEnabled(true);
-        });
-
-        stopBtn.addActionListener(e -> {
-            isRecording = false;
-            recordBtn.setEnabled(true);
-            stopBtn.setEnabled(false);
-        
-            currentPlaybackEvents = convertRawEventsToPlaybackFormat(rawEvents);
-        
-            SwingUtilities.invokeLater(() -> {
-                playbackBar.setValue(0);
-                playResumeBtn.setText("▶ Play/Resume");
-                playResumeBtn.setEnabled(true);
-            });
-        });
-
-        saveBtn.addActionListener(e -> saveRecording());
-        loadBtn.addActionListener(e -> loadAndPlay());
-        changeTimbreBtn.addActionListener(e -> changeTimbre());
-        resetBtn.addActionListener(e -> resetAllNotes());
-
-        // --- Chat Panel ---
+    
+        recordPanel.add(recordBtn);
+        recordPanel.add(stopBtn);
+        recordPanel.add(saveBtn);
+        recordPanel.add(loadBtn);
+    
+        JPanel playAndBarPanel = new JPanel(new BorderLayout());
+        playAndBarPanel.add(playResumeBtn, BorderLayout.WEST);
+        playAndBarPanel.add(playbackBar, BorderLayout.CENTER);
+        recordPanel.add(playAndBarPanel);
+    
+        recordPanel.add(resetBtn);
+    
+        // --- Timbre & Chord ---
+        JPanel optionsPanel = new JPanel(new GridLayout(2, 2, 5, 5));
+        optionsPanel.setBorder(BorderFactory.createTitledBorder("Timbre & Chord"));
+        JLabel timbreLabel = new JLabel("Timbre:");
+        JComboBox<String> timbreSelector = new JComboBox<>(new String[]{"sine", "square", "triangle", "sawtooth", "piano"});
+        timbreSelector.setSelectedItem(TIMBRE);
+        timbreSelector.addActionListener(e -> TIMBRE = (String) timbreSelector.getSelectedItem());
+        autoChordCheck = new JCheckBox("Auto Chord");
+        chordTypeSelector = new JComboBox<>(new String[]{"Major", "Minor", "Diminished", "Octave"});
+        optionsPanel.add(timbreLabel);
+        optionsPanel.add(timbreSelector);
+        optionsPanel.add(autoChordCheck);
+        optionsPanel.add(chordTypeSelector);
+    
+        // Assemble functionGroupPanel
+        functionGroupPanel.add(recordPanel);
+        functionGroupPanel.add(optionsPanel);
+    
+        // Assemble controlPanel
+        controlPanel.add(volumePanel, BorderLayout.WEST);
+        controlPanel.add(functionGroupPanel, BorderLayout.CENTER);
+    
+        // === Chat Panel ===
         JPanel chatPanel = new JPanel(new BorderLayout());
+        chatPanel.setPreferredSize(new Dimension(pianoWidth / 3, 300));
         chatArea = new JTextArea(8, 30);
         chatArea.setEditable(false);
         JScrollPane scrollPane = new JScrollPane(chatArea);
@@ -217,24 +170,61 @@ public class PianoApp {
         inputPanel.add(sendButton, BorderLayout.EAST);
         chatPanel.add(scrollPane, BorderLayout.CENTER);
         chatPanel.add(inputPanel, BorderLayout.SOUTH);
-
-        topPanel.add(controlPanel);
-        topPanel.add(chatPanel);
-
-        // --- Piano Panel ---
-        JLayeredPane layeredPane = createPiano();  // Your method
+    
+        // Add to top panel
+        topPanel.add(controlPanel, BorderLayout.CENTER);
+        topPanel.add(chatPanel, BorderLayout.EAST);
+    
+        // === Piano Panel ===
+        JLayeredPane layeredPane = createPiano();
         layeredPane.setPreferredSize(new Dimension(pianoWidth, pianoHeight));
-
         frame.add(topPanel, BorderLayout.NORTH);
         frame.add(layeredPane, BorderLayout.CENTER);
         frame.pack();
-
+    
         int topPanelHeight = topPanel.getPreferredSize().height;
         frame.setSize(pianoWidth, pianoHeight + topPanelHeight);
-
         frame.setVisible(true);
-        
-
+    
+        // === Event Handlers ===
+        recordBtn.addActionListener(e -> {
+            isRecording = true;
+            rawEvents.clear();
+            activeNotes.clear();
+            recordingStartTime = System.currentTimeMillis();
+            recordBtn.setEnabled(false);
+            stopBtn.setEnabled(true);
+        });
+    
+        stopBtn.addActionListener(e -> {
+            isRecording = false;
+            recordBtn.setEnabled(true);
+            stopBtn.setEnabled(false);
+            currentPlaybackEvents = convertRawEventsToPlaybackFormat(rawEvents);
+            SwingUtilities.invokeLater(() -> {
+                playbackBar.setValue(0);
+                playResumeBtn.setText("▶");
+                playResumeBtn.setEnabled(true);
+            });
+        });
+    
+        saveBtn.addActionListener(e -> saveRecording());
+        loadBtn.addActionListener(e -> loadAndPlay());
+        resetBtn.addActionListener(e -> resetAllNotes());
+    
+        playResumeBtn.addActionListener(e -> {
+            if (!currentPlaybackEvents.isEmpty()) {
+                if (playbackBar.getValue() > 0 && playbackBar.getValue() < 100) {
+                    playbackManager.togglePause();
+                } else {
+                    playbackManager.play(currentPlaybackEvents);
+                    playResumeBtn.setText("⏸");
+                }
+            } else {
+                JOptionPane.showMessageDialog(null, "No recorded or loaded data to play.");
+            }
+        });
+    
         networkExecutor.submit(PianoApp::listenForMessages);
     }
 
@@ -243,6 +233,8 @@ public class PianoApp {
         layeredPane.setPreferredSize(new Dimension(WHITE_KEYS.size() * 60, 300));
     
         Supplier<Long> recordingStartTimeSupplier = () -> recordingStartTime;
+        Supplier<Boolean> isAutoChordEnabled = () -> autoChordCheck.isSelected();
+        Supplier<String> chordTypeSupplier = () -> (String) chordTypeSelector.getSelectedItem();
     
         int whiteKeyIndex = 0;
         Map<String, Integer> whiteKeyPositions = new HashMap<>();
@@ -262,7 +254,9 @@ public class PianoApp {
                 () -> TIMBRE,
                 PianoApp::sendMessage,
                 ToneGenerator::stopTone,
-                n -> ToneGenerator.playToneContinuous(freq, n, TIMBRE)
+                n -> ToneGenerator.playToneContinuous(freq, n, TIMBRE),
+                isAutoChordEnabled,
+                chordTypeSupplier
             );
             layeredPane.add(key, JLayeredPane.DEFAULT_LAYER);
             whiteKeyIndex++;
@@ -272,7 +266,7 @@ public class PianoApp {
         for (String blackNote : BLACK_KEYS.keySet()) {
             double freq = BLACK_KEYS.get(blackNote);
     
-            // Find base note (e.g., C#4 → C4)
+            // Find base white key
             String baseWhite = blackNote.replace("#", "");
             int whiteIndex = -1;
             for (int i = 0; i < whiteNoteList.size(); i++) {
@@ -282,7 +276,6 @@ public class PianoApp {
                 }
             }
     
-            // Skip if index not found or if it's the last white key (no next key to center between)
             if (whiteIndex == -1 || whiteIndex + 1 >= whiteNoteList.size()) continue;
     
             int bx = (whiteIndex + 1) * 60 - 20;
@@ -296,7 +289,9 @@ public class PianoApp {
                 () -> TIMBRE,
                 PianoApp::sendMessage,
                 ToneGenerator::stopTone,
-                n -> ToneGenerator.playToneContinuous(freq, n, TIMBRE)
+                n -> ToneGenerator.playToneContinuous(freq, n, TIMBRE),
+                isAutoChordEnabled,
+                chordTypeSupplier
             );
             layeredPane.add(key, JLayeredPane.PALETTE_LAYER);
         }
