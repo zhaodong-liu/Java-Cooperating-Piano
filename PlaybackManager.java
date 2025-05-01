@@ -182,7 +182,7 @@ public class PlaybackManager {
             int percent = (int) (100.0 * logicalTime / totalDuration);
             SwingUtilities.invokeLater(() -> playbackBar.setValue(Math.min(percent, 100)));
 
-            if (logicalTime >= totalDuration && activePlaybackNotes.isEmpty()) break;
+            if (logicalTime >= totalDuration) break;
 
             try {
                 Thread.sleep(10);

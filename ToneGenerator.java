@@ -81,7 +81,20 @@ public class ToneGenerator {
                                 int offset = pianoOffsets.getOrDefault(key, 0);
                                 if (sample != null && offset < sample.length) {
                                     int bytesToWrite = Math.min(buffer.length, sample.length - offset);
-                                    System.arraycopy(sample, offset, buffer, 0, bytesToWrite);
+                                    for (int i = 0; i < bytesToWrite; i += 2) {
+                                        if (offset + i + 1 >= sample.length) break;
+                                    
+                                        // 从原始sample读取16-bit little endian
+                                        int low = sample[offset + i] & 0xff;
+                                        int high = sample[offset + i + 1];
+                                        short origSample = (short) ((high << 8) | low);
+                                    
+                                        // 缩放音量
+                                        short scaledSample = (short) (origSample * globalVolume);
+                                    
+                                        buffer[i] = (byte) (scaledSample & 0xff);
+                                        buffer[i + 1] = (byte) ((scaledSample >> 8) & 0xff);
+                                    }
                                     line.write(buffer, 0, bytesToWrite);
                                     pianoOffsets.put(key, offset + bytesToWrite);
                                 } else {
