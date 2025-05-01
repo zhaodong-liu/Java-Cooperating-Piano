@@ -35,6 +35,7 @@ public class PianoApp {
     private static java.util.List<String[]> currentPlaybackEvents = new java.util.ArrayList<>();
     private static JProgressBar playbackBar;
     private static JButton playResumeBtn;
+    private static JLabel currentNoteLabel;
 
     static {
         WHITE_KEYS.put("C4", 261.63);  WHITE_KEYS.put("D4", 293.66);  WHITE_KEYS.put("E4", 329.63);
@@ -88,7 +89,7 @@ public class PianoApp {
     
         // === Volume Panel (Left side) ===
         JPanel volumePanel = new JPanel();
-        volumePanel.setBorder(BorderFactory.createTitledBorder("Volume"));
+        volumePanel.setBorder(BorderFactory.createTitledBorder("Vol"));
         volumePanel.setLayout(new BoxLayout(volumePanel, BoxLayout.Y_AXIS));
         JLabel volumeLabel = new JLabel("", SwingConstants.CENTER);
         JSlider volumeSlider = new JSlider(JSlider.VERTICAL, 0, 100, 100);
@@ -133,23 +134,35 @@ public class PianoApp {
     
         recordPanel.add(resetBtn);
     
-        // --- Timbre & Chord ---
-        JPanel optionsPanel = new JPanel(new GridLayout(2, 2, 5, 5));
-        optionsPanel.setBorder(BorderFactory.createTitledBorder("Timbre & Chord"));
+        // --- Timbre & Chord (Left 2/3) ---
+        JPanel leftPanel = new JPanel(new GridLayout(2, 2, 5, 5));
         JLabel timbreLabel = new JLabel("Timbre:");
         JComboBox<String> timbreSelector = new JComboBox<>(new String[]{"sine", "square", "triangle", "sawtooth", "piano"});
         timbreSelector.setSelectedItem(TIMBRE);
         timbreSelector.addActionListener(e -> TIMBRE = (String) timbreSelector.getSelectedItem());
         autoChordCheck = new JCheckBox("Auto Chord");
         chordTypeSelector = new JComboBox<>(new String[]{"Major", "Minor", "Diminished", "Octave"});
-        optionsPanel.add(timbreLabel);
-        optionsPanel.add(timbreSelector);
-        optionsPanel.add(autoChordCheck);
-        optionsPanel.add(chordTypeSelector);
+        leftPanel.add(timbreLabel);
+        leftPanel.add(timbreSelector);
+        leftPanel.add(autoChordCheck);
+        leftPanel.add(chordTypeSelector);
+
+        // --- Real-time Note Indicator (Right 1/3) ---
+        JPanel rightPanel = new JPanel(new BorderLayout());
+        currentNoteLabel = new JLabel("Current Note: None", SwingConstants.CENTER);
+        rightPanel.setBorder(BorderFactory.createTitledBorder("Current Note"));
+        rightPanel.add(currentNoteLabel, BorderLayout.CENTER);
+        rightPanel.setPreferredSize(new Dimension(200, 80));
+
+        // --- Combine into container ---
+        JPanel optionsContainer = new JPanel(new BorderLayout());
+        optionsContainer.setBorder(BorderFactory.createTitledBorder("Timbre & Chord"));
+        optionsContainer.add(leftPanel, BorderLayout.CENTER);
+        optionsContainer.add(rightPanel, BorderLayout.EAST);
     
         // Assemble functionGroupPanel
         functionGroupPanel.add(recordPanel);
-        functionGroupPanel.add(optionsPanel);
+        functionGroupPanel.add(optionsContainer);
     
         // Assemble controlPanel
         controlPanel.add(volumePanel, BorderLayout.WEST);
@@ -254,7 +267,10 @@ public class PianoApp {
                 () -> TIMBRE,
                 PianoApp::sendMessage,
                 ToneGenerator::stopTone,
-                n -> ToneGenerator.playToneContinuous(freq, n, TIMBRE),
+                n -> {
+                    ToneGenerator.playToneContinuous(freq, n, TIMBRE);
+                    updateCurrentNoteLabel(n);
+                },
                 isAutoChordEnabled,
                 chordTypeSupplier
             );
@@ -289,7 +305,10 @@ public class PianoApp {
                 () -> TIMBRE,
                 PianoApp::sendMessage,
                 ToneGenerator::stopTone,
-                n -> ToneGenerator.playToneContinuous(freq, n, TIMBRE),
+                n -> {
+                    ToneGenerator.playToneContinuous(freq, n, TIMBRE);
+                    updateCurrentNoteLabel(n);
+                },
                 isAutoChordEnabled,
                 chordTypeSupplier
             );
@@ -461,5 +480,14 @@ public class PianoApp {
         }
     
         return result;
+    }
+
+    public static void updateCurrentNoteLabel(String note) {
+        SwingUtilities.invokeLater(() -> {
+            if (currentNoteLabel != null) {
+                currentNoteLabel.setText("Current Note: " + note);
+                // System.out.println("Updating note label: " + note);
+            }
+        });
     }
 }
