@@ -146,13 +146,14 @@ public class PianoApp {
         leftPanel.add(timbreSelector);
         leftPanel.add(autoChordCheck);
         leftPanel.add(chordTypeSelector);
+        leftPanel.setPreferredSize(new Dimension(400, 50));
 
         // --- Real-time Note Indicator (Right 1/3) ---
         JPanel rightPanel = new JPanel(new BorderLayout());
-        currentNoteLabel = new JLabel("Current Note: None", SwingConstants.CENTER);
+        currentNoteLabel = new JLabel("None", SwingConstants.CENTER);
         rightPanel.setBorder(BorderFactory.createTitledBorder("Current Note"));
         rightPanel.add(currentNoteLabel, BorderLayout.CENTER);
-        rightPanel.setPreferredSize(new Dimension(200, 80));
+        rightPanel.setPreferredSize(new Dimension(200, 50));
 
         // --- Combine into container ---
         JPanel optionsContainer = new JPanel(new BorderLayout());
@@ -485,7 +486,7 @@ public class PianoApp {
     public static void updateCurrentNoteLabel(String note) {
         SwingUtilities.invokeLater(() -> {
             if (currentNoteLabel != null) {
-                currentNoteLabel.setText("Current Note: " + note);
+                currentNoteLabel.setText(note);
                 // System.out.println("Updating note label: " + note);
             }
         });

@@ -58,6 +58,8 @@ public class KeyFactory {
                         btn.setBackground(n.contains("#") ? Color.GRAY : Color.CYAN);
                     }
                 }
+                String currentNotes = String.join(" ", pressCount.keySet());
+                PianoApp.updateCurrentNoteLabel(currentNotes);
             }
 
             public void mouseReleased(MouseEvent e) {
@@ -86,6 +88,12 @@ public class KeyFactory {
                     if (btn != null) {
                         btn.setBackground(n.contains("#") ? Color.BLACK : Color.WHITE);
                     }
+                }
+                if (pressCount.isEmpty()) {
+                    PianoApp.updateCurrentNoteLabel("None");
+                } else {
+                    String currentNotes = String.join(" ", pressCount.keySet());
+                    PianoApp.updateCurrentNoteLabel(currentNotes);
                 }
             }
         });
