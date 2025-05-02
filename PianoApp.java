@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.awt.event.KeyEvent;
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
@@ -14,13 +15,10 @@ import javax.swing.*;
 public class PianoApp {
     public static final java.util.Map<String, Double> WHITE_KEYS = new java.util.LinkedHashMap<>();
     public static final java.util.Map<String, Double> BLACK_KEYS = new java.util.LinkedHashMap<>();
-    private static final java.util.Map<String, JButton> keyButtons = new java.util.HashMap<>();
     private static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
-    private static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static PlaybackManager playbackManager;
-    private static String TIMBRE = "sine";
     private static Socket socket;
     private static PrintWriter out;
     private static BufferedReader in;
@@ -36,6 +34,13 @@ public class PianoApp {
     private static JProgressBar playbackBar;
     private static JButton playResumeBtn;
     private static JLabel currentNoteLabel;
+    private static JLabel currentOctaveLabel;
+    private static OctaveManager octaveManager = new OctaveManager(4, 7, 5);  // min=4, max=7, start=5
+
+    public static final java.util.Map<String, JButton> keyButtons = new java.util.HashMap<>();
+    public static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static String TIMBRE = "sine";
 
     static {
         WHITE_KEYS.put("C4", 261.63);  WHITE_KEYS.put("D4", 293.66);  WHITE_KEYS.put("E4", 329.63);
@@ -154,11 +159,24 @@ public class PianoApp {
         leftPanel.add(chordTypeSelector);
 
         // Note Indicator
-        JPanel rightPanel = new JPanel(new BorderLayout());
+        JPanel rightPanel = new JPanel(new GridLayout(2, 1));  // change to GridLayout for 2 labels
+
+        // Current Note
         currentNoteLabel = new JLabel("None", SwingConstants.CENTER);
-        rightPanel.setBorder(BorderFactory.createTitledBorder("Current Note"));
-        rightPanel.add(currentNoteLabel, BorderLayout.CENTER);
-        rightPanel.setPreferredSize(new Dimension(200, 50));
+        JPanel notePanel = new JPanel(new BorderLayout());
+        notePanel.setBorder(BorderFactory.createTitledBorder("Current Note"));
+        notePanel.add(currentNoteLabel, BorderLayout.CENTER);
+
+        // Current Octave
+        currentOctaveLabel = new JLabel("5", SwingConstants.CENTER);  // default to starting octave (e.g., 5)
+        JPanel octavePanel = new JPanel(new BorderLayout());
+        octavePanel.setBorder(BorderFactory.createTitledBorder("Current Keyboard Octave"));
+        octavePanel.add(currentOctaveLabel, BorderLayout.CENTER);
+
+        rightPanel.add(notePanel);
+        rightPanel.add(octavePanel);
+
+        rightPanel.setPreferredSize(new Dimension(200, 100));  // adjust height if needed
 
         JPanel optionsContainer = new JPanel(new GridLayout(1, 3));
         optionsContainer.setBorder(BorderFactory.createTitledBorder("Play Setting"));
@@ -204,6 +222,42 @@ public class PianoApp {
         int topPanelHeight = topPanel.getPreferredSize().height;
         frame.setSize(pianoWidth, pianoHeight + topPanelHeight);
         frame.setVisible(true);
+
+        // Set up key bindings on the frame's root pane
+        InputMap inputMap = frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = frame.getRootPane().getActionMap();
+
+        // Bind all note keys
+        for (int keyCode : OctaveManager.getSupportedKeyCodes()) {
+            // Press action
+            inputMap.put(KeyStroke.getKeyStroke(keyCode, 0, false), "press_" + keyCode);
+            actionMap.put("press_" + keyCode, new AbstractAction() {
+                @Override
+                public void actionPerformed(java.awt.event.ActionEvent e) {
+                    octaveManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
+                }
+            });
+
+            // Release action
+            inputMap.put(KeyStroke.getKeyStroke(keyCode, 0, true), "release_" + keyCode);
+            actionMap.put("release_" + keyCode, new AbstractAction() {
+                @Override
+                public void actionPerformed(java.awt.event.ActionEvent e) {
+                    octaveManager.handleKeyRelease(new KeyEvent(frame, KeyEvent.KEY_RELEASED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
+                }
+            });
+        }
+
+        // Bind octave switch keys: 4/5/6/7
+        for (int keyCode : new int[]{KeyEvent.VK_4, KeyEvent.VK_5, KeyEvent.VK_6, KeyEvent.VK_7}) {
+            inputMap.put(KeyStroke.getKeyStroke(keyCode, 0, false), "press_" + keyCode);
+            actionMap.put("press_" + keyCode, new AbstractAction() {
+                @Override
+                public void actionPerformed(java.awt.event.ActionEvent e) {
+                    octaveManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
+                }
+            });
+        }
     
         // button behaviors
         recordBtn.addActionListener(e -> {
@@ -538,4 +592,15 @@ public class PianoApp {
     
         return metronomePanel;
     }
+
+    
+    public static void updateCurrentOctaveLabel(int octave) {
+        SwingUtilities.invokeLater(() -> {
+            if (currentOctaveLabel != null) {
+                currentOctaveLabel.setText(String.valueOf(octave));
+            }
+        });
+    }
+
+    
 }
