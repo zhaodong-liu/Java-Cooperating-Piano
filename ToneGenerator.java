@@ -170,4 +170,30 @@ public class ToneGenerator {
                 return Math.sin(phase);
         }
     }
+
+    public static void beepSound() {
+        final float SAMPLE_RATE = 44100;
+        final int DURATION_MS = 100;
+        final double FREQUENCY = 880;  // A5音
+    
+        byte[] buf = new byte[2];
+        AudioFormat af = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);
+    
+        try (SourceDataLine sdl = AudioSystem.getSourceDataLine(af)) {
+            sdl.open(af);
+            sdl.start();
+    
+            for (int i = 0; i < (int)(SAMPLE_RATE * DURATION_MS / 1000); i++) {
+                double angle = i / (SAMPLE_RATE / FREQUENCY) * 2.0 * Math.PI;
+                short sample = (short)(Math.sin(angle) * 32767);
+                buf[0] = (byte)(sample & 0xFF);
+                buf[1] = (byte)((sample >> 8) & 0xFF);
+                sdl.write(buf, 0, 2);
+            }
+    
+            sdl.drain();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

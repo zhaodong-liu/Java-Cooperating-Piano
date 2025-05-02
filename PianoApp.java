@@ -54,15 +54,25 @@ public class PianoApp {
         BLACK_KEYS.put("G#6", 1661.22); BLACK_KEYS.put("A#6", 1864.66);
     }
 
+
+
     public static void main(String[] args) throws IOException {
         String serverIP = JOptionPane.showInputDialog("Enter server IP:", "localhost");
         String portStr = JOptionPane.showInputDialog("Enter port:", "5190");
         username = JOptionPane.showInputDialog("Enter your username:");
     
-        socket = new Socket(serverIP, Integer.parseInt(portStr));
-        out = new PrintWriter(socket.getOutputStream(), true);
-        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        out.println(username);
+        try {
+            socket = new Socket(serverIP, Integer.parseInt(portStr));
+            out = new PrintWriter(socket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out.println(username);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(null, "Invalid port number. Please enter a valid integer.");
+            System.exit(1);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(null, "Failed to connect to the server. Please check the IP and port.");
+            System.exit(1);
+        }
     
         ToneGenerator.loadPianoSamples();
     
@@ -76,7 +86,7 @@ public class PianoApp {
         int pianoWidth = whiteKeyWidth * numberOfWhiteKeys;
         int pianoHeight = 300;
     
-        JFrame frame = new JFrame("Cooperating Piano 🎹");
+        JFrame frame = new JFrame("Cooperating Piano");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         frame.setResizable(false);
@@ -155,14 +165,21 @@ public class PianoApp {
         rightPanel.setPreferredSize(new Dimension(200, 50));
 
         // --- Combine into container ---
-        JPanel optionsContainer = new JPanel(new BorderLayout());
-        optionsContainer.setBorder(BorderFactory.createTitledBorder("Timbre & Chord"));
-        optionsContainer.add(leftPanel, BorderLayout.CENTER);
-        optionsContainer.add(rightPanel, BorderLayout.EAST);
+        // JPanel optionsContainer = new JPanel(new BorderLayout());
+        // optionsContainer.setBorder(BorderFactory.createTitledBorder("Timbre & Chord"));
+        // optionsContainer.add(leftPanel, BorderLayout.CENTER);
+        // optionsContainer.add(rightPanel, BorderLayout.EAST);
+        JPanel optionsContainer = new JPanel(new GridLayout(1, 3));  // 3列
+        optionsContainer.setBorder(BorderFactory.createTitledBorder("Options"));
+
+        optionsContainer.add(leftPanel);            // 音色 & 和弦
+        optionsContainer.add(rightPanel);           // 当前音符
+        optionsContainer.add(createMetronomePanel());  // 节拍器
     
         // Assemble functionGroupPanel
         functionGroupPanel.add(recordPanel);
         functionGroupPanel.add(optionsContainer);
+
     
         // Assemble controlPanel
         controlPanel.add(volumePanel, BorderLayout.WEST);
@@ -489,5 +506,67 @@ public class PianoApp {
                 // System.out.println("Updating note label: " + note);
             }
         });
+    }
+
+    
+    public static JPanel createMetronomePanel() {
+        JPanel metronomePanel = new JPanel(new BorderLayout());
+        metronomePanel.setBorder(BorderFactory.createTitledBorder("Metronome"));
+    
+        JLabel bpmLabel = new JLabel("BPM:");
+        JSpinner bpmSpinner = new JSpinner(new SpinnerNumberModel(120, 30, 300, 1));  // default 120 BPM
+        JButton startStopBtn = new JButton("Start");
+    
+        JLabel beatIndicator = new JLabel("●", SwingConstants.CENTER);
+        beatIndicator.setFont(new Font("SansSerif", Font.BOLD, 30));
+        beatIndicator.setForeground(Color.GRAY);
+    
+        JPanel controlPanel = new JPanel();
+        controlPanel.add(bpmLabel);
+        controlPanel.add(bpmSpinner);
+        controlPanel.add(startStopBtn);
+    
+        metronomePanel.add(controlPanel, BorderLayout.NORTH);
+        metronomePanel.add(beatIndicator, BorderLayout.CENTER);
+    
+        Timer[] driverTimer = new Timer[1];  // Fixed timer for driving
+        final long[] nextBeatTime = new long[1];  // Time of next beat in ms
+    
+        startStopBtn.addActionListener(e -> {
+            if (driverTimer[0] == null) {
+                int bpm = (Integer) bpmSpinner.getValue();
+                long intervalMs = 60000 / bpm;
+                nextBeatTime[0] = System.currentTimeMillis();  // First beat immediately
+    
+                driverTimer[0] = new Timer(10, ev -> {  // Check every 10ms
+                    long now = System.currentTimeMillis();
+                    int currentBpm = (Integer) bpmSpinner.getValue();  // Always get current BPM
+                    long currentInterval = 60000 / currentBpm;
+    
+                    if (now >= nextBeatTime[0]) {
+                        // Play the beep
+                        beatIndicator.setForeground(Color.RED);
+                        new Thread(() -> ToneGenerator.beepSound()).start();
+    
+                        // Flash off after 100ms
+                        Timer flashOff = new Timer(100, evt -> beatIndicator.setForeground(Color.GRAY));
+                        flashOff.setRepeats(false);
+                        flashOff.start();
+    
+                        // Schedule next beat
+                        nextBeatTime[0] = now + currentInterval;
+                    }
+                });
+                driverTimer[0].start();
+                startStopBtn.setText("Stop");
+            } else {
+                driverTimer[0].stop();
+                driverTimer[0] = null;
+                beatIndicator.setForeground(Color.GRAY);
+                startStopBtn.setText("Start");
+            }
+        });
+    
+        return metronomePanel;
     }
 }
