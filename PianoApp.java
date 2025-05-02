@@ -146,7 +146,6 @@ public class PianoApp {
         leftPanel.add(timbreSelector);
         leftPanel.add(autoChordCheck);
         leftPanel.add(chordTypeSelector);
-        leftPanel.setPreferredSize(new Dimension(400, 50));
 
         // --- Real-time Note Indicator (Right 1/3) ---
         JPanel rightPanel = new JPanel(new BorderLayout());
