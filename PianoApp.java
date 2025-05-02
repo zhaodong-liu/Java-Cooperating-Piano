@@ -235,6 +235,9 @@ public class PianoApp {
             actionMap.put("press_" + keyCode, new AbstractAction() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
+                    if (chatInput.isFocusOwner()) {
+                        return;  // Skip if the chat box is focused
+                    }
                     keyboardManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
                 }
             });
@@ -244,6 +247,9 @@ public class PianoApp {
             actionMap.put("release_" + keyCode, new AbstractAction() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
+                    if (chatInput.isFocusOwner()) {
+                        return;  // Skip if the chat box is focused
+                    }
                     keyboardManager.handleKeyRelease(new KeyEvent(frame, KeyEvent.KEY_RELEASED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
                 }
             });
@@ -255,6 +261,9 @@ public class PianoApp {
             actionMap.put("press_" + keyCode, new AbstractAction() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
+                    if (chatInput.isFocusOwner()) {
+                        return;  // Skip if the chat box is focused
+                    }
                     keyboardManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
                 }
             });
@@ -430,10 +439,10 @@ public class PianoApp {
         pressCount.clear();
     }
 
+
     static void sendMessage(String msg) {
-        networkExecutor.submit(() -> {
-            if (out != null) out.println("MUSIC," + msg);
-        });
+        // System.out.println("[DEBUG] Directly sending to server: MUSIC," + msg);
+        if (out != null) out.println("MUSIC," + msg);
     }
 
     private static void sendChat() {
@@ -448,13 +457,17 @@ public class PianoApp {
         try {
             String line;
             while ((line = in.readLine()) != null) {
+                // System.out.println("[CLIENT RECEIVE] Got from server: " + line);
                 int firstComma = line.indexOf(',');
                 if (firstComma != -1) {
                     String category = line.substring(0, firstComma);
                     String content = line.substring(firstComma + 1);
 
                     if (category.equals("MUSIC")) {
-                        handleMusicMessage(content);
+                        handleMusicMessage(line);  // pass full line: MUSIC,NOTE_ON,C5,sine
+                    } else if (category.equals("NOTE_ON") || category.equals("NOTE_OFF")) {
+                        handleMusicMessage(line);  // pass: NOTE_ON,C5,sine
+                    
                     } else if (category.equals("CHAT")) {
                         SwingUtilities.invokeLater(() -> {
                             chatArea.append(content + "\n");
@@ -468,12 +481,21 @@ public class PianoApp {
         }
     }
 
-    private static void handleMusicMessage(String content) {
-        String[] parts = content.split(",");
-        if (parts.length >= 3) {
-            String type = parts[0];
-            String note = parts[1];
-            String timbre = parts[2];
+    private static void handleMusicMessage(String message) {
+        // System.out.println("[CLIENT HANDLE] Message passed in: " + message);
+        String[] parts = message.split(",");
+    
+        int typeIndex = 0;  // by default assume format: NOTE_ON,C5,sine
+        if (parts[0].equals("MUSIC")) {
+            // Shift: MUSIC,NOTE_ON,C5,sine
+            typeIndex = 1;
+        }
+    
+        if (parts.length - typeIndex >= 3) {
+            String type = parts[typeIndex];
+            String note = parts[typeIndex + 1];
+            String timbre = parts[typeIndex + 2];
+            // System.out.println("[CLIENT HANDLE] type=" + type + ", note=" + note + ", timbre=" + timbre);
     
             double freq = WHITE_KEYS.getOrDefault(note, BLACK_KEYS.getOrDefault(note, -1.0));
             if (freq > 0) {
@@ -503,7 +525,6 @@ public class PianoApp {
             }
         }
     }
-
 
 
     private static List<String[]> convertRawEventsToPlaybackFormat(List<String[]> rawEvents) {

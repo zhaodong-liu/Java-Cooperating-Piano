@@ -77,8 +77,6 @@ public class KeyboardManager {
     
                 double freq = PianoApp.WHITE_KEYS.getOrDefault(note, PianoApp.BLACK_KEYS.getOrDefault(note, -1.0));
                 if (freq > 0) {
-                    // ⭐️ ⭐️ 修改的关键点 ⭐️ ⭐️
-                    // 只在第一次按下时触发，不再重复累加 pressCount
                     if (!PianoApp.pressCount.containsKey(note)) {
                         ToneGenerator.playToneContinuous(freq, note, PianoApp.TIMBRE);
                         PianoApp.pressCount.put(note, 1);
@@ -101,7 +99,6 @@ public class KeyboardManager {
                             keyBtn.setBackground(note.contains("#") ? java.awt.Color.GRAY : java.awt.Color.CYAN);
                         }
                     }
-                    // 如果已经按下过，就啥也不做（忽略重复 KEY_PRESSED）
                 }
             }
     
@@ -115,7 +112,7 @@ public class KeyboardManager {
     }
 
 
-    
+
     public void handleKeyRelease(KeyEvent e) {
         // System.out.println("Key released: " + e.getKeyCode());
         // System.out.println("Before releasing: " + PianoApp.pressCount.keySet());
