@@ -92,12 +92,9 @@ public class PianoApp {
         frame.setResizable(false);
     
         JPanel topPanel = new JPanel(new BorderLayout());
-    
-        // === Controls Panel ===
         JPanel controlPanel = new JPanel(new BorderLayout());
         controlPanel.setPreferredSize(new Dimension((int)(pianoWidth * 2.0 / 3), 300));
     
-        // === Volume Panel (Left side) ===
         JPanel volumePanel = new JPanel();
         volumePanel.setBorder(BorderFactory.createTitledBorder("Vol"));
         volumePanel.setLayout(new BoxLayout(volumePanel, BoxLayout.Y_AXIS));
@@ -114,11 +111,10 @@ public class PianoApp {
         volumePanel.add(volumeLabel);
         volumePanel.add(volumeSlider);
     
-        // === Functional Controls (Center of control panel) ===
         JPanel functionGroupPanel = new JPanel();
         functionGroupPanel.setLayout(new BoxLayout(functionGroupPanel, BoxLayout.Y_AXIS));
     
-        // --- Recording & Playback ---
+        // Recording & Playback
         JPanel recordPanel = new JPanel(new GridLayout(2, 3, 5, 5));
         recordPanel.setBorder(BorderFactory.createTitledBorder("Recording & Playback"));
         JButton recordBtn = new JButton("🎙 Start Recording");
@@ -144,7 +140,7 @@ public class PianoApp {
     
         recordPanel.add(resetBtn);
     
-        // --- Timbre & Chord (Left 2/3) ---
+        // Timbre & Chord
         JPanel leftPanel = new JPanel(new GridLayout(2, 2, 5, 5));
         JLabel timbreLabel = new JLabel("Timbre:");
         JComboBox<String> timbreSelector = new JComboBox<>(new String[]{"sine", "square", "triangle", "sawtooth", "piano"});
@@ -157,35 +153,29 @@ public class PianoApp {
         leftPanel.add(autoChordCheck);
         leftPanel.add(chordTypeSelector);
 
-        // --- Real-time Note Indicator (Right 1/3) ---
+        // Note Indicator
         JPanel rightPanel = new JPanel(new BorderLayout());
         currentNoteLabel = new JLabel("None", SwingConstants.CENTER);
         rightPanel.setBorder(BorderFactory.createTitledBorder("Current Note"));
         rightPanel.add(currentNoteLabel, BorderLayout.CENTER);
         rightPanel.setPreferredSize(new Dimension(200, 50));
 
-        // --- Combine into container ---
-        // JPanel optionsContainer = new JPanel(new BorderLayout());
-        // optionsContainer.setBorder(BorderFactory.createTitledBorder("Timbre & Chord"));
-        // optionsContainer.add(leftPanel, BorderLayout.CENTER);
-        // optionsContainer.add(rightPanel, BorderLayout.EAST);
-        JPanel optionsContainer = new JPanel(new GridLayout(1, 3));  // 3列
-        optionsContainer.setBorder(BorderFactory.createTitledBorder("Options"));
+        JPanel optionsContainer = new JPanel(new GridLayout(1, 3));
+        optionsContainer.setBorder(BorderFactory.createTitledBorder("Play Setting"));
 
-        optionsContainer.add(leftPanel);            // 音色 & 和弦
-        optionsContainer.add(rightPanel);           // 当前音符
-        optionsContainer.add(createMetronomePanel());  // 节拍器
+        optionsContainer.add(leftPanel);            // timbre & chord
+        optionsContainer.add(rightPanel);           // current note
+        optionsContainer.add(createMetronomePanel());  // metronome
     
-        // Assemble functionGroupPanel
+
         functionGroupPanel.add(recordPanel);
         functionGroupPanel.add(optionsContainer);
 
-    
-        // Assemble controlPanel
+
         controlPanel.add(volumePanel, BorderLayout.WEST);
         controlPanel.add(functionGroupPanel, BorderLayout.CENTER);
     
-        // === Chat Panel ===
+        // Chat panel
         JPanel chatPanel = new JPanel(new BorderLayout());
         chatPanel.setPreferredSize(new Dimension(pianoWidth / 3, 300));
         chatArea = new JTextArea(8, 30);
@@ -201,11 +191,10 @@ public class PianoApp {
         chatPanel.add(scrollPane, BorderLayout.CENTER);
         chatPanel.add(inputPanel, BorderLayout.SOUTH);
     
-        // Add to top panel
         topPanel.add(controlPanel, BorderLayout.CENTER);
         topPanel.add(chatPanel, BorderLayout.EAST);
     
-        // === Piano Panel ===
+        // Piano panel
         JLayeredPane layeredPane = createPiano();
         layeredPane.setPreferredSize(new Dimension(pianoWidth, pianoHeight));
         frame.add(topPanel, BorderLayout.NORTH);
@@ -216,7 +205,7 @@ public class PianoApp {
         frame.setSize(pianoWidth, pianoHeight + topPanelHeight);
         frame.setVisible(true);
     
-        // === Event Handlers ===
+        // button behaviors
         recordBtn.addActionListener(e -> {
             isRecording = true;
             rawEvents.clear();
@@ -270,7 +259,7 @@ public class PianoApp {
         Map<String, Integer> whiteKeyPositions = new HashMap<>();
         List<String> whiteNoteList = new ArrayList<>(WHITE_KEYS.keySet());
     
-        // 🎹 White keys
+        // White keys
         for (String note : whiteNoteList) {
             double freq = WHITE_KEYS.get(note);
             int x = whiteKeyIndex * 60;
@@ -295,11 +284,11 @@ public class PianoApp {
             whiteKeyIndex++;
         }
     
-        // 🎹 Black keys (derived dynamically)
+        // black key
         for (String blackNote : BLACK_KEYS.keySet()) {
             double freq = BLACK_KEYS.get(blackNote);
     
-            // Find base white key
+
             String baseWhite = blackNote.replace("#", "");
             int whiteIndex = -1;
             for (int i = 0; i < whiteNoteList.size(); i++) {
@@ -371,21 +360,6 @@ public class PianoApp {
     }
     
 
-    private static void changeTimbre() {
-        String[] timbres = {
-            "sine", 
-            "square", 
-            "sawtooth", 
-            "triangle",
-            "piano"
-        };
-        String selectedTimbre = (String) JOptionPane.showInputDialog(null, "Select Timbre:", "Timbre Selection",
-                JOptionPane.PLAIN_MESSAGE, null, timbres, TIMBRE);
-        if (selectedTimbre != null) {
-            TIMBRE = selectedTimbre;
-        }
-    }
-
 
     private static void resetAllNotes() {
         // Stop ALL tones
@@ -398,7 +372,6 @@ public class PianoApp {
             key.setBackground(note.contains("#") ? Color.BLACK : Color.WHITE);
         }
     
-        // Clear pressed notes map
         pressCount.clear();
     }
 
@@ -529,31 +502,27 @@ public class PianoApp {
         metronomePanel.add(controlPanel, BorderLayout.NORTH);
         metronomePanel.add(beatIndicator, BorderLayout.CENTER);
     
-        Timer[] driverTimer = new Timer[1];  // Fixed timer for driving
-        final long[] nextBeatTime = new long[1];  // Time of next beat in ms
+        Timer[] driverTimer = new Timer[1];
+        final long[] nextBeatTime = new long[1];
     
         startStopBtn.addActionListener(e -> {
             if (driverTimer[0] == null) {
                 int bpm = (Integer) bpmSpinner.getValue();
-                long intervalMs = 60000 / bpm;
-                nextBeatTime[0] = System.currentTimeMillis();  // First beat immediately
+                nextBeatTime[0] = System.currentTimeMillis();
     
-                driverTimer[0] = new Timer(10, ev -> {  // Check every 10ms
+                driverTimer[0] = new Timer(10, ev -> {  // Check every 10ms, change the beep interval
                     long now = System.currentTimeMillis();
-                    int currentBpm = (Integer) bpmSpinner.getValue();  // Always get current BPM
+                    int currentBpm = (Integer) bpmSpinner.getValue();
                     long currentInterval = 60000 / currentBpm;
     
                     if (now >= nextBeatTime[0]) {
-                        // Play the beep
                         beatIndicator.setForeground(Color.RED);
                         new Thread(() -> ToneGenerator.beepSound()).start();
     
-                        // Flash off after 100ms
                         Timer flashOff = new Timer(100, evt -> beatIndicator.setForeground(Color.GRAY));
                         flashOff.setRepeats(false);
                         flashOff.start();
     
-                        // Schedule next beat
                         nextBeatTime[0] = now + currentInterval;
                     }
                 });
