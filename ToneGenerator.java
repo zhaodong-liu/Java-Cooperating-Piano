@@ -34,7 +34,7 @@ public class ToneGenerator {
                     baos.write(buffer, 0, read);
                 }
                 pianoSamples.put(note, baos.toByteArray());
-                System.out.println("Loaded sample for " + note);
+                // System.out.println("Loaded sample for " + note);
             } catch (Exception e) {
                 System.err.println("Failed to load sample for " + note);
             }

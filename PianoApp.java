@@ -15,7 +15,7 @@ import javax.swing.*;
 public class PianoApp {
     public static final java.util.Map<String, Double> WHITE_KEYS = new java.util.LinkedHashMap<>();
     public static final java.util.Map<String, Double> BLACK_KEYS = new java.util.LinkedHashMap<>();
-    private static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
+    static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
 
     private static PlaybackManager playbackManager;
@@ -23,8 +23,8 @@ public class PianoApp {
     private static PrintWriter out;
     private static BufferedReader in;
     private static ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
-    private static boolean isRecording = false;
-    private static long recordingStartTime;
+    static boolean isRecording = false;
+    static long recordingStartTime;
     private static String username;
     private static JCheckBox autoChordCheck;
     private static JComboBox<String> chordTypeSelector;
@@ -35,7 +35,7 @@ public class PianoApp {
     private static JButton playResumeBtn;
     private static JLabel currentNoteLabel;
     private static JLabel currentOctaveLabel;
-    private static OctaveManager octaveManager = new OctaveManager(4, 7, 5);  // min=4, max=7, start=5
+    private static KeyboardManager keyboardManager;
 
     public static final java.util.Map<String, JButton> keyButtons = new java.util.HashMap<>();
     public static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
@@ -157,6 +157,7 @@ public class PianoApp {
         leftPanel.add(timbreSelector);
         leftPanel.add(autoChordCheck);
         leftPanel.add(chordTypeSelector);
+        keyboardManager = new KeyboardManager(4, 7, 5, autoChordCheck, chordTypeSelector);
 
         // Note Indicator
         JPanel rightPanel = new JPanel(new GridLayout(2, 1));  // change to GridLayout for 2 labels
@@ -228,13 +229,13 @@ public class PianoApp {
         ActionMap actionMap = frame.getRootPane().getActionMap();
 
         // Bind all note keys
-        for (int keyCode : OctaveManager.getSupportedKeyCodes()) {
+        for (int keyCode : KeyboardManager.getSupportedKeyCodes()) {
             // Press action
             inputMap.put(KeyStroke.getKeyStroke(keyCode, 0, false), "press_" + keyCode);
             actionMap.put("press_" + keyCode, new AbstractAction() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
-                    octaveManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
+                    keyboardManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
                 }
             });
 
@@ -243,7 +244,7 @@ public class PianoApp {
             actionMap.put("release_" + keyCode, new AbstractAction() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
-                    octaveManager.handleKeyRelease(new KeyEvent(frame, KeyEvent.KEY_RELEASED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
+                    keyboardManager.handleKeyRelease(new KeyEvent(frame, KeyEvent.KEY_RELEASED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
                 }
             });
         }
@@ -254,7 +255,7 @@ public class PianoApp {
             actionMap.put("press_" + keyCode, new AbstractAction() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
-                    octaveManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
+                    keyboardManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
                 }
             });
         }
@@ -429,7 +430,7 @@ public class PianoApp {
         pressCount.clear();
     }
 
-    private static void sendMessage(String msg) {
+    static void sendMessage(String msg) {
         networkExecutor.submit(() -> {
             if (out != null) out.println("MUSIC," + msg);
         });
