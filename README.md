@@ -23,7 +23,9 @@ For the electronic timbres, the frequency of each note was stored in advance, an
 <br>
 For the real piano sound, an open-source sound pack [TEDAgame's Piano Pack](https://freesound.org/people/TEDAgame/packs/25405/) was used as the sound sample. The sound files will be loaded in advance and be played when the key is clicked. 
 <br>
-A simple metronome is also built into this App. A thread is only for playing beep sound from metronome, hence avoid conflict with the piano keyboard.
+A simple metronome is also built into this App. A thread is only for playing beep sounds from the metronome, hence avoid conflict with the piano keyboard.
+<br>
+The chord is implemented by a map to indicate the pitch difference between different chords.
 
 ### Server:
 The server handles the connection between users and listens for two kinds of messages: "MUSIC" and "CHAT", once received message, it will broadcast the message to all the users.
