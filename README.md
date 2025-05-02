@@ -1,4 +1,4 @@
-## Multiuser Piano
+## Cooperating Piano
 This project is a virtual piano application that supports **real-time multi-user collaboration**, **music recording/playback**, and **customizable sound generation**.  
 Developed as the final project for **CS-UY 3913 Java and Web Design**.
 ## Features:
@@ -22,10 +22,11 @@ For the electronic timbres, the frequency of each note was stored in advance, an
   | Sawtooth   | `(2.0 * (phase / (2.0 * Math.PI))) - 1.0` |
 <br>
 For the real piano sound, an open-source sound pack [TEDAgame's Piano Pack](https://freesound.org/people/TEDAgame/packs/25405/) was used as the sound sample. The sound files will be loaded in advance and be played when the key is clicked. 
-
+<br>
+A simple metronome is also built into this App. A thread is only for playing beep sound from metronome, hence avoid conflict with the piano keyboard.
 
 ### Server:
 The server handles the connection between users and listens for two kinds of messages: "MUSIC" and "CHAT", once received message, it will broadcast the message to all the users.
 
 ### (Play from/Save to) File:
-The notes are saved in format: note,startTime,endTime, timbre, which is easy to code and modify outside. It is possible to compose some music in this format and play it in the App.
+The notes are saved in format: note,startTime,endTime, timbre, which is easy to code and modify outside. It is possible to compose some music in this format and play it in the App. Currently, two music examples are provided in the music_example folder. Load and try!
