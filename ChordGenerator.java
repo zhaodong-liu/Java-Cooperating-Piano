@@ -31,14 +31,12 @@ public class ChordGenerator {
                 intervals = new int[]{0, 12};
                 break;
             default:
-                return Collections.singletonList(root); // fallback
+                return Collections.singletonList(root);
         }
 
         for (int interval : intervals) {
             int idx = rootIndex + interval;
             if (idx < NOTE_ORDER.size()) {
-                // Prevent crossing octave boundary for major/minor/diminished
-                // Check if note stays within 12 semitones of root
                 if (interval <= 12) {
                     chord.add(NOTE_ORDER.get(idx));
                 }

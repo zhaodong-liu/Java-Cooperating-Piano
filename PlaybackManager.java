@@ -56,7 +56,7 @@ public class PlaybackManager {
                 pauseStartTime = System.currentTimeMillis();
                 SwingUtilities.invokeLater(() -> playResumeBtn.setText("▶"));
     
-                // === Stop all currently playing notes ===
+                // stop all active notes
                 long logicalNow = pauseStartTime - playbackStart.get() - totalPausedTime;
     
                 for (String note : new HashSet<>(activePlaybackNotes)) {
@@ -66,7 +66,7 @@ public class PlaybackManager {
                     if (remaining <= 0) continue;
     
                     activeNoteEndTimes.put(note, logicalNow + remaining);
-                    activeNoteStartTimes.put(note, logicalNow);  // resume from now later
+                    activeNoteStartTimes.put(note, logicalNow);
     
                     ToneGenerator.stopTone(note);
                     JButton btn = keyButtons.get(note);
@@ -81,7 +81,7 @@ public class PlaybackManager {
                 pauseStartTime = 0;
                 SwingUtilities.invokeLater(() -> playResumeBtn.setText("⏸"));
     
-                // === Resume all paused notes ===
+                // resume paused notes
                 long logicalNow = resumeTime - playbackStart.get() - totalPausedTime;
     
                 for (String note : new HashSet<>(activePlaybackNotes)) {

@@ -11,7 +11,7 @@ public class ToneGenerator {
     private static final Map<String, String> currentTimbre = new ConcurrentHashMap<>();
     private static final Map<String, byte[]> pianoSamples = new ConcurrentHashMap<>();
     private static final Map<String, Integer> pianoOffsets = new ConcurrentHashMap<>();
-    private static volatile double globalVolume = 0.5; // Default 50%
+    private static volatile double globalVolume = 0.5;
 
     public static void setGlobalVolume(double volume) {
         globalVolume = Math.max(0.0, Math.min(1.0, volume));
@@ -84,13 +84,10 @@ public class ToneGenerator {
                                     for (int i = 0; i < bytesToWrite; i += 2) {
                                         if (offset + i + 1 >= sample.length) break;
                                     
-                                        // 从原始sample读取16-bit little endian
                                         int low = sample[offset + i] & 0xff;
                                         int high = sample[offset + i + 1];
                                         short origSample = (short) ((high << 8) | low);
-                                    
-                                        // 缩放音量
-                                        short scaledSample = (short) (origSample * globalVolume);
+                                        short scaledSample = (short) (origSample * globalVolume);  // apply global volume
                                     
                                         buffer[i] = (byte) (scaledSample & 0xff);
                                         buffer[i + 1] = (byte) ((scaledSample >> 8) & 0xff);
@@ -171,10 +168,13 @@ public class ToneGenerator {
         }
     }
 
+    
+
+    // individual beep sound play only for metronome
     public static void beepSound() {
         final float SAMPLE_RATE = 44100;
         final int DURATION_MS = 100;
-        final double FREQUENCY = 880;  // A5音
+        final double FREQUENCY = 880;  // play A5
     
         byte[] buf = new byte[2];
         AudioFormat af = new AudioFormat(SAMPLE_RATE, 16, 1, true, false);

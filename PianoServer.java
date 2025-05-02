@@ -38,7 +38,7 @@ public class PianoServer {
         @Override
         public void run() {
             try {
-                // First message received should be the username
+                // first message received is the username
                 username = in.readLine();
                 if (username == null) {
                     closeConnection();
@@ -55,7 +55,7 @@ public class PianoServer {
                 while ((msg = in.readLine()) != null) {
                     int firstComma = msg.indexOf(',');
                     if (firstComma == -1) {
-                        continue; // Invalid message, ignore
+                        continue;
                     }
 
                     String category = msg.substring(0, firstComma);
