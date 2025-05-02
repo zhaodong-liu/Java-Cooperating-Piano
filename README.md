@@ -1,4 +1,4 @@
-## Multiuser Piano
+## Cooperating Piano
 This project is a virtual piano application that supports **real-time multi-user collaboration**, **music recording/playback**, and **customizable sound generation**.  
 Developed as the final project for **CS-UY 3913 Java and Web Design**.
 ## Features:
