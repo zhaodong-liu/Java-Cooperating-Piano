@@ -9,7 +9,7 @@ public class PianoServer {
 
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = new ServerSocket(PORT);
-        System.out.println("🎼 Piano Server running on port " + PORT + "...");
+        System.out.println("Piano Server running on port " + PORT + "...");
 
         while (true) {
             Socket socket = serverSocket.accept();
@@ -54,6 +54,7 @@ public class PianoServer {
                 String msg;
                 while ((msg = in.readLine()) != null) {
                     int firstComma = msg.indexOf(',');
+                    // System.out.println("[SERVER RECEIVE] Got: " + msg);
                     if (firstComma == -1) {
                         continue;
                     }
@@ -80,6 +81,7 @@ public class PianoServer {
             for (ClientHandler client : clients) {
                 if (client != this) {
                     client.sendMessage("MUSIC," + musicContent);
+                    // System.out.println("[SERVER BROADCAST] Broadcasting to all: MUSIC," + musicContent);
                 }
             }
         }
