@@ -62,14 +62,14 @@ public class PianoApp {
 
 
     public static void main(String[] args) throws IOException {
+        // 1) Connect to server
         String serverIP = JOptionPane.showInputDialog("Enter server IP:", "localhost");
-        String portStr = JOptionPane.showInputDialog("Enter port:", "5190");
+        String portStr  = JOptionPane.showInputDialog("Enter port:",    "5190");
         username = JOptionPane.showInputDialog("Enter your username:");
-    
         try {
             socket = new Socket(serverIP, Integer.parseInt(portStr));
-            out = new PrintWriter(socket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out    = new PrintWriter(socket.getOutputStream(), true);
+            in     = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out.println(username);
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(null, "Invalid port number. Please enter a valid integer.");
@@ -79,27 +79,31 @@ public class PianoApp {
             System.exit(1);
         }
     
+        // 2) Initialize audio & keys
         ToneGenerator.loadPianoSamples();
-    
         Set<String> allKeys = new HashSet<>();
         allKeys.addAll(WHITE_KEYS.keySet());
         allKeys.addAll(BLACK_KEYS.keySet());
         ToneGenerator.initializeKeys(allKeys);
     
-        int whiteKeyWidth = 60;
-        int numberOfWhiteKeys = WHITE_KEYS.size();
-        int pianoWidth = whiteKeyWidth * numberOfWhiteKeys;
-        int pianoHeight = 300;
+        // 3) Compute layout sizes
+        int whiteKeyWidth   = 60;
+        int numberOfWhite   = WHITE_KEYS.size();
+        int pianoWidth      = whiteKeyWidth * numberOfWhite;
+        int pianoHeight     = 300;
     
+        // 4) Frame setup
         JFrame frame = new JFrame("Cooperating Piano");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         frame.setResizable(false);
     
-        JPanel topPanel = new JPanel(new BorderLayout());
+        // 5) Top-level panels
+        JPanel topPanel     = new JPanel(new BorderLayout());
         JPanel controlPanel = new JPanel(new BorderLayout());
-        controlPanel.setPreferredSize(new Dimension((int)(pianoWidth * 2.0 / 3), 300));
+        controlPanel.setPreferredSize(new Dimension((int)(pianoWidth * 2.0/3), 300));
     
+        // —— Volume panel (WEST) ——
         JPanel volumePanel = new JPanel();
         volumePanel.setBorder(BorderFactory.createTitledBorder("Vol"));
         volumePanel.setLayout(new BoxLayout(volumePanel, BoxLayout.Y_AXIS));
@@ -108,96 +112,92 @@ public class PianoApp {
         volumeSlider.setMajorTickSpacing(25);
         volumeSlider.setPaintTicks(true);
         volumeSlider.setPaintLabels(true);
-        volumeSlider.setPreferredSize(new Dimension(50, 200));
+        volumeSlider.setPreferredSize(new Dimension(50,200));
         volumeSlider.addChangeListener(e -> {
-            double volume = volumeSlider.getValue() / 100.0;
-            ToneGenerator.setGlobalVolume(volume);
+            double vol = volumeSlider.getValue()/100.0;
+            ToneGenerator.setGlobalVolume(vol);
         });
         volumePanel.add(volumeLabel);
         volumePanel.add(volumeSlider);
     
-        JPanel functionGroupPanel = new JPanel();
-        functionGroupPanel.setLayout(new BoxLayout(functionGroupPanel, BoxLayout.Y_AXIS));
+        // —— Metronome panel (EAST) ——
+        Metronome metronome = new Metronome();
+        JPanel metroPanel    = metronome.getPanel();
+        // match the height of volumePanel
+        metroPanel.setPreferredSize(new Dimension(212,200));
+        JPanel metroWrapper  = new JPanel(new BorderLayout());
+        metroWrapper.setBorder(BorderFactory.createEmptyBorder(0,5,0,0));
+        metroWrapper.add(metroPanel, BorderLayout.CENTER);
     
-        // Recording & Playback
-        JPanel recordPanel = new JPanel(new GridLayout(2, 3, 5, 5));
+        // —— Recording & Playback panel —— 
+        JPanel recordPanel = new JPanel(new GridLayout(2,3,5,5));
         recordPanel.setBorder(BorderFactory.createTitledBorder("Recording & Playback"));
-        JButton recordBtn = new JButton("🎙 Start Recording");
-        JButton stopBtn = new JButton("⏹ Stop Recording");
-        JButton saveBtn = new JButton("💾 Save Recording");
-        JButton loadBtn = new JButton("📂 Load & Play");
-        JButton resetBtn = new JButton("🔄 Reset");
-        playResumeBtn = new JButton("▶");
-        playbackBar = new JProgressBar(0, 100);
+        JButton recordBtn  = new JButton("🎙 Start Recording");
+        JButton stopBtn    = new JButton("⏹ Stop Recording");
+        JButton saveBtn    = new JButton("💾 Save Recording");
+        JButton loadBtn    = new JButton("📂 Load & Play");
+        JButton resetBtn   = new JButton("🔄 Reset");
+        playResumeBtn      = new JButton("▶");
+        playbackBar        = new JProgressBar(0,100);
         playbackBar.setStringPainted(false);
-        playbackManager = new PlaybackManager(WHITE_KEYS, BLACK_KEYS, keyButtons, playbackBar, playResumeBtn);
+        playbackManager    = new PlaybackManager(WHITE_KEYS, BLACK_KEYS, keyButtons, playbackBar, playResumeBtn);
         stopBtn.setEnabled(false);
     
         recordPanel.add(recordBtn);
         recordPanel.add(stopBtn);
         recordPanel.add(saveBtn);
         recordPanel.add(loadBtn);
-    
-        JPanel playAndBarPanel = new JPanel(new BorderLayout());
-        playAndBarPanel.add(playResumeBtn, BorderLayout.WEST);
-        playAndBarPanel.add(playbackBar, BorderLayout.CENTER);
-        recordPanel.add(playAndBarPanel);
-    
+        JPanel playAndBar = new JPanel(new BorderLayout());
+        playAndBar.add(playResumeBtn, BorderLayout.WEST);
+        playAndBar.add(playbackBar,    BorderLayout.CENTER);
+        recordPanel.add(playAndBar);
         recordPanel.add(resetBtn);
     
-        // Timbre & Chord
-        JPanel leftPanel = new JPanel(new GridLayout(2, 2, 5, 5));
+        // —— Play Setting panels (Timbre/Chord & Note/Octave) —— 
+        JPanel leftPanel  = new JPanel(new GridLayout(2,2,5,5));
         JLabel timbreLabel = new JLabel("Timbre:");
-        JComboBox<String> timbreSelector = new JComboBox<>(new String[]{"sine", "square", "triangle", "sawtooth", "piano"});
+        JComboBox<String> timbreSelector = new JComboBox<>(new String[]{"sine","square","triangle","sawtooth","piano"});
         timbreSelector.setSelectedItem(TIMBRE);
-        timbreSelector.addActionListener(e -> TIMBRE = (String) timbreSelector.getSelectedItem());
-        autoChordCheck = new JCheckBox("Auto Chord");
-        chordTypeSelector = new JComboBox<>(new String[]{"Major", "Minor", "Diminished", "Octave"});
+        timbreSelector.addActionListener(e -> TIMBRE = (String)timbreSelector.getSelectedItem());
+        autoChordCheck    = new JCheckBox("Auto Chord");
+        chordTypeSelector = new JComboBox<>(new String[]{"Major","Minor","Diminished","Octave"});
         leftPanel.add(timbreLabel);
         leftPanel.add(timbreSelector);
         leftPanel.add(autoChordCheck);
         leftPanel.add(chordTypeSelector);
-        keyboardManager = new KeyboardManager(4, 7, 5, autoChordCheck, chordTypeSelector);
-
-        // Note Indicator
-        JPanel rightPanel = new JPanel(new GridLayout(2, 1));  // change to GridLayout for 2 labels
-
-        // Current Note
-        currentNoteLabel = new JLabel("None", SwingConstants.CENTER);
-        JPanel notePanel = new JPanel(new BorderLayout());
+        keyboardManager = new KeyboardManager(4,7,5, autoChordCheck, chordTypeSelector);
+    
+        JPanel rightPanel = new JPanel(new GridLayout(2,1));
+        currentNoteLabel  = new JLabel("None", SwingConstants.CENTER);
+        JPanel notePanel  = new JPanel(new BorderLayout());
         notePanel.setBorder(BorderFactory.createTitledBorder("Current Note"));
         notePanel.add(currentNoteLabel, BorderLayout.CENTER);
-
-        // Current Octave
-        currentOctaveLabel = new JLabel("5", SwingConstants.CENTER);  // default to starting octave (e.g., 5)
-        JPanel octavePanel = new JPanel(new BorderLayout());
+        currentOctaveLabel= new JLabel("5", SwingConstants.CENTER);
+        JPanel octavePanel= new JPanel(new BorderLayout());
         octavePanel.setBorder(BorderFactory.createTitledBorder("Current Keyboard Octave"));
         octavePanel.add(currentOctaveLabel, BorderLayout.CENTER);
-
         rightPanel.add(notePanel);
         rightPanel.add(octavePanel);
-
-        rightPanel.setPreferredSize(new Dimension(200, 100));  // adjust height if needed
-
-        JPanel optionsContainer = new JPanel(new GridLayout(1, 3));
-        optionsContainer.setBorder(BorderFactory.createTitledBorder("Play Setting"));
-
-        optionsContainer.add(leftPanel);            // timbre & chord
-        optionsContainer.add(rightPanel);           // current note
-        optionsContainer.add(createMetronomePanel());  // metronome
     
-
+        JPanel optionsContainer = new JPanel(new GridLayout(1,2,5,5));
+        optionsContainer.setBorder(BorderFactory.createTitledBorder("Play Setting"));
+        optionsContainer.add(leftPanel);
+        optionsContainer.add(rightPanel);
+    
+        JPanel functionGroupPanel = new JPanel();
+        functionGroupPanel.setLayout(new BoxLayout(functionGroupPanel, BoxLayout.Y_AXIS));
         functionGroupPanel.add(recordPanel);
         functionGroupPanel.add(optionsContainer);
-
-
-        controlPanel.add(volumePanel, BorderLayout.WEST);
-        controlPanel.add(functionGroupPanel, BorderLayout.CENTER);
     
-        // Chat panel
+        // —— Assemble controlPanel —— 
+        controlPanel.add(volumePanel,            BorderLayout.WEST);
+        controlPanel.add(functionGroupPanel,     BorderLayout.CENTER);
+        controlPanel.add(metroWrapper,           BorderLayout.EAST);
+    
+        // —— Chat panel —— 
         JPanel chatPanel = new JPanel(new BorderLayout());
-        chatPanel.setPreferredSize(new Dimension(pianoWidth / 3, 300));
-        chatArea = new JTextArea(8, 30);
+        chatPanel.setPreferredSize(new Dimension(pianoWidth/3,300));
+        chatArea = new JTextArea(8,30);
         chatArea.setEditable(false);
         JScrollPane scrollPane = new JScrollPane(chatArea);
         JPanel inputPanel = new JPanel(new BorderLayout());
@@ -205,23 +205,21 @@ public class PianoApp {
         JButton sendButton = new JButton("Send");
         sendButton.addActionListener(e -> sendChat());
         chatInput.addActionListener(e -> sendChat());
-        inputPanel.add(chatInput, BorderLayout.CENTER);
-        inputPanel.add(sendButton, BorderLayout.EAST);
-        chatPanel.add(scrollPane, BorderLayout.CENTER);
-        chatPanel.add(inputPanel, BorderLayout.SOUTH);
+        inputPanel.add(chatInput,BorderLayout.CENTER);
+        inputPanel.add(sendButton,BorderLayout.EAST);
+        chatPanel.add(scrollPane,BorderLayout.CENTER);
+        chatPanel.add(inputPanel,BorderLayout.SOUTH);
     
-        topPanel.add(controlPanel, BorderLayout.CENTER);
-        topPanel.add(chatPanel, BorderLayout.EAST);
+        topPanel.add(controlPanel,BorderLayout.CENTER);
+        topPanel.add(chatPanel,   BorderLayout.EAST);
     
-        // Piano panel
+        // —— Piano panel —— 
         JLayeredPane layeredPane = createPiano();
-        layeredPane.setPreferredSize(new Dimension(pianoWidth, pianoHeight));
-        frame.add(topPanel, BorderLayout.NORTH);
-        frame.add(layeredPane, BorderLayout.CENTER);
+        layeredPane.setPreferredSize(new Dimension(pianoWidth,pianoHeight));
+        frame.add(topPanel,       BorderLayout.NORTH);
+        frame.add(layeredPane,    BorderLayout.CENTER);
         frame.pack();
-    
-        int topPanelHeight = topPanel.getPreferredSize().height;
-        frame.setSize(pianoWidth, pianoHeight + topPanelHeight);
+        frame.setSize(pianoWidth, pianoHeight + topPanel.getPreferredSize().height);
         frame.setVisible(true);
 
         // Set up key bindings on the frame's root pane
@@ -555,64 +553,6 @@ public class PianoApp {
                 // System.out.println("Updating note label: " + note);
             }
         });
-    }
-
-    
-    public static JPanel createMetronomePanel() {
-        JPanel metronomePanel = new JPanel(new BorderLayout());
-        metronomePanel.setBorder(BorderFactory.createTitledBorder("Metronome"));
-    
-        JLabel bpmLabel = new JLabel("BPM:");
-        JSpinner bpmSpinner = new JSpinner(new SpinnerNumberModel(120, 30, 300, 1));  // default 120 BPM
-        JButton startStopBtn = new JButton("Start");
-    
-        JLabel beatIndicator = new JLabel("●", SwingConstants.CENTER);
-        beatIndicator.setFont(new Font("SansSerif", Font.BOLD, 30));
-        beatIndicator.setForeground(Color.GRAY);
-    
-        JPanel controlPanel = new JPanel();
-        controlPanel.add(bpmLabel);
-        controlPanel.add(bpmSpinner);
-        controlPanel.add(startStopBtn);
-    
-        metronomePanel.add(controlPanel, BorderLayout.NORTH);
-        metronomePanel.add(beatIndicator, BorderLayout.CENTER);
-    
-        Timer[] driverTimer = new Timer[1];
-        final long[] nextBeatTime = new long[1];
-    
-        startStopBtn.addActionListener(e -> {
-            if (driverTimer[0] == null) {
-                int bpm = (Integer) bpmSpinner.getValue();
-                nextBeatTime[0] = System.currentTimeMillis();
-    
-                driverTimer[0] = new Timer(10, ev -> {  // Check every 10ms, change the beep interval
-                    long now = System.currentTimeMillis();
-                    int currentBpm = (Integer) bpmSpinner.getValue();
-                    long currentInterval = 60000 / currentBpm;
-    
-                    if (now >= nextBeatTime[0]) {
-                        beatIndicator.setForeground(Color.RED);
-                        new Thread(() -> ToneGenerator.beepSound()).start();
-    
-                        Timer flashOff = new Timer(100, evt -> beatIndicator.setForeground(Color.GRAY));
-                        flashOff.setRepeats(false);
-                        flashOff.start();
-    
-                        nextBeatTime[0] = now + currentInterval;
-                    }
-                });
-                driverTimer[0].start();
-                startStopBtn.setText("Stop");
-            } else {
-                driverTimer[0].stop();
-                driverTimer[0] = null;
-                beatIndicator.setForeground(Color.GRAY);
-                startStopBtn.setText("Start");
-            }
-        });
-    
-        return metronomePanel;
     }
 
     
