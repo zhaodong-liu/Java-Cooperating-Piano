@@ -112,7 +112,7 @@ public class PianoApp {
         volumeSlider.setMajorTickSpacing(25);
         volumeSlider.setPaintTicks(true);
         volumeSlider.setPaintLabels(true);
-        volumeSlider.setPreferredSize(new Dimension(50,200));
+        volumeSlider.setPreferredSize(new Dimension(50,300));
         volumeSlider.addChangeListener(e -> {
             double vol = volumeSlider.getValue()/100.0;
             ToneGenerator.setGlobalVolume(vol);
@@ -120,38 +120,70 @@ public class PianoApp {
         volumePanel.add(volumeLabel);
         volumePanel.add(volumeSlider);
     
+        // Measure and compute half-height of volumePanel
+        Dimension volDim = volumePanel.getPreferredSize();
+        int volH = volDim.height;       // expected 200
+        int halfH = volH / 2;           // e.g. 100
+    
         // —— Metronome panel (EAST) ——
         Metronome metronome = new Metronome();
         JPanel metroPanel    = metronome.getPanel();
-        // match the height of volumePanel
         metroPanel.setPreferredSize(new Dimension(212,200));
         JPanel metroWrapper  = new JPanel(new BorderLayout());
         metroWrapper.setBorder(BorderFactory.createEmptyBorder(0,5,0,0));
         metroWrapper.add(metroPanel, BorderLayout.CENTER);
     
-        // —— Recording & Playback panel —— 
-        JPanel recordPanel = new JPanel(new GridLayout(2,3,5,5));
+        // —— Record & Playback panel —— 
+        JPanel recordPanel = new JPanel(new GridBagLayout());
         recordPanel.setBorder(BorderFactory.createTitledBorder("Recording & Playback"));
-        JButton recordBtn  = new JButton("🎙 Start Recording");
-        JButton stopBtn    = new JButton("⏹ Stop Recording");
-        JButton saveBtn    = new JButton("💾 Save Recording");
-        JButton loadBtn    = new JButton("📂 Load & Play");
-        JButton resetBtn   = new JButton("🔄 Reset");
-        playResumeBtn      = new JButton("▶");
-        playbackBar        = new JProgressBar(0,100);
-        playbackBar.setStringPainted(false);
-        playbackManager    = new PlaybackManager(WHITE_KEYS, BLACK_KEYS, keyButtons, playbackBar, playResumeBtn);
-        stopBtn.setEnabled(false);
     
-        recordPanel.add(recordBtn);
-        recordPanel.add(stopBtn);
-        recordPanel.add(saveBtn);
-        recordPanel.add(loadBtn);
-        JPanel playAndBar = new JPanel(new BorderLayout());
-        playAndBar.add(playResumeBtn, BorderLayout.WEST);
-        playAndBar.add(playbackBar,    BorderLayout.CENTER);
-        recordPanel.add(playAndBar);
-        recordPanel.add(resetBtn);
+        JButton recordBtn     = new JButton("🎙 Start Recording");
+        JButton stopBtn       = new JButton("⏹ Stop Recording");
+        JButton saveBtn       = new JButton("💾 Save Recording");
+        JButton loadBtn       = new JButton("📂 Load & Play");
+        JButton resetBtn      = new JButton("🔄 Reset");
+        JButton playResumeBtn = new JButton("▶");
+        JProgressBar playbackBar = new JProgressBar(0,100);
+        playbackManager = new PlaybackManager(
+            WHITE_KEYS, BLACK_KEYS, keyButtons,
+            playbackBar, playResumeBtn
+        );
+        playbackBar.setStringPainted(false);
+        
+    
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets  = new Insets(3,5,3,5);
+        gbc.fill    = GridBagConstraints.BOTH;
+        gbc.weightx = 0.0;
+        gbc.weighty = 0.0;
+    
+        // First row
+        gbc.gridy = 0;
+        gbc.gridx = 0; recordPanel.add(recordBtn, gbc);
+        gbc.gridx = 1; recordPanel.add(stopBtn,   gbc);
+        gbc.gridx = 2; recordPanel.add(saveBtn,   gbc);
+        gbc.gridx = 3; recordPanel.add(resetBtn,  gbc);
+    
+        // Second row: load, play/resume, then progress bar spanning two columns
+        gbc.gridy     = 1;
+        gbc.gridwidth = 1;
+        gbc.weightx   = 0.0;
+        gbc.gridx     = 0; recordPanel.add(loadBtn,      gbc);
+        gbc.gridx     = 1; recordPanel.add(playResumeBtn,gbc);
+
+        // now make the bar span cols 2 & 3
+        gbc.gridx     = 2;
+        gbc.gridwidth = 2;
+        gbc.weightx   = 1.0;  // let that two-cell span grow
+        recordPanel.add(playbackBar, gbc);
+
+        // reset for future adds
+        gbc.gridwidth = 1;
+        gbc.weightx   = 0.0;
+    
+        // Enforce half-height on recordPanel
+        recordPanel.setPreferredSize(new Dimension(recordPanel.getPreferredSize().width, halfH));
+        recordPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, halfH));
     
         // —— Play Setting panels (Timbre/Chord & Note/Octave) —— 
         JPanel leftPanel  = new JPanel(new GridLayout(2,2,5,5));
@@ -168,12 +200,12 @@ public class PianoApp {
         keyboardManager = new KeyboardManager(4,7,5, autoChordCheck, chordTypeSelector);
     
         JPanel rightPanel = new JPanel(new GridLayout(2,1));
-        currentNoteLabel  = new JLabel("None", SwingConstants.CENTER);
-        JPanel notePanel  = new JPanel(new BorderLayout());
+        currentNoteLabel   = new JLabel("None", SwingConstants.CENTER);
+        JPanel notePanel   = new JPanel(new BorderLayout());
         notePanel.setBorder(BorderFactory.createTitledBorder("Current Note"));
         notePanel.add(currentNoteLabel, BorderLayout.CENTER);
-        currentOctaveLabel= new JLabel("5", SwingConstants.CENTER);
-        JPanel octavePanel= new JPanel(new BorderLayout());
+        currentOctaveLabel = new JLabel("5", SwingConstants.CENTER);
+        JPanel octavePanel = new JPanel(new BorderLayout());
         octavePanel.setBorder(BorderFactory.createTitledBorder("Current Keyboard Octave"));
         octavePanel.add(currentOctaveLabel, BorderLayout.CENTER);
         rightPanel.add(notePanel);
@@ -184,15 +216,19 @@ public class PianoApp {
         optionsContainer.add(leftPanel);
         optionsContainer.add(rightPanel);
     
+        // Enforce half-height on optionsContainer
+        optionsContainer.setPreferredSize(new Dimension(optionsContainer.getPreferredSize().width, halfH));
+        optionsContainer.setMaximumSize(new Dimension(Integer.MAX_VALUE, halfH));
+    
         JPanel functionGroupPanel = new JPanel();
         functionGroupPanel.setLayout(new BoxLayout(functionGroupPanel, BoxLayout.Y_AXIS));
         functionGroupPanel.add(recordPanel);
         functionGroupPanel.add(optionsContainer);
     
         // —— Assemble controlPanel —— 
-        controlPanel.add(volumePanel,            BorderLayout.WEST);
-        controlPanel.add(functionGroupPanel,     BorderLayout.CENTER);
-        controlPanel.add(metroWrapper,           BorderLayout.EAST);
+        controlPanel.add(volumePanel,        BorderLayout.WEST);
+        controlPanel.add(functionGroupPanel, BorderLayout.CENTER);
+        controlPanel.add(metroWrapper,       BorderLayout.EAST);
     
         // —— Chat panel —— 
         JPanel chatPanel = new JPanel(new BorderLayout());
@@ -216,8 +252,8 @@ public class PianoApp {
         // —— Piano panel —— 
         JLayeredPane layeredPane = createPiano();
         layeredPane.setPreferredSize(new Dimension(pianoWidth,pianoHeight));
-        frame.add(topPanel,       BorderLayout.NORTH);
-        frame.add(layeredPane,    BorderLayout.CENTER);
+        frame.add(topPanel,    BorderLayout.NORTH);
+        frame.add(layeredPane, BorderLayout.CENTER);
         frame.pack();
         frame.setSize(pianoWidth, pianoHeight + topPanel.getPreferredSize().height);
         frame.setVisible(true);
