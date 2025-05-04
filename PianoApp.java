@@ -156,6 +156,7 @@ public class PianoApp {
         gbc.fill    = GridBagConstraints.BOTH;
         gbc.weightx = 0.0;
         gbc.weighty = 0.0;
+        gbc.ipady   = 20; 
     
         // First row
         gbc.gridy = 0;
