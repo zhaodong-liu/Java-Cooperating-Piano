@@ -1,5 +1,3 @@
-// Metronome.java
-
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import javax.swing.*;
@@ -21,7 +19,6 @@ public class Metronome {
         panel = new JPanel(new BorderLayout());
         panel.setBorder(BorderFactory.createTitledBorder("Metronome(40-240 BPM)"));
 
-        // —— Top controls —— 
         JPanel ctrl = new JPanel();
         ctrl.add(new JLabel("BPM:"));
         bpmSpinner = new JSpinner(new SpinnerNumberModel(120, MIN_BPM, MAX_BPM, 1));
@@ -80,8 +77,8 @@ public class Metronome {
         private final JSpinner spinner;
         private long nextBeat, interval;
         private int direction, bpm;
-        private double angle;      // 当前摆杆角度
-        private double weightFrac; // 配重比例
+        private double angle;  
+        private double weightFrac;
 
         PendulumPanel(int width, int height, JSpinner spinner) {
             this.w = width;
@@ -96,20 +93,15 @@ public class Metronome {
             this.direction = direction;
             this.bpm       = bpm;
 
-            // 计算摆动进度 t∈[0,1]
             long lastBeat = nextBeat - interval;
             double t = (now - lastBeat) / (double)interval;
             t = Math.min(1.0, Math.max(0.0, t));
 
-            // 根据当前 BPM 动态调整最大摆角：
-            // 在 MIN_BPM 时为 30°，在 MAX_BPM 时缩小到 30° * (MIN_BPM/MAX_BPM)
             double maxAng = Math.toRadians(30) * (MIN_BPM / (double)bpm);
 
-            // 计算当前角度（以 last direction 为符号）
             int lastDir = -direction;
             angle = 2 * lastDir * maxAng * Math.cos(Math.PI * t);
 
-            // 根据 BPM 更新配重位置比例
             weightFrac = (MAX_BPM - bpm) / (double)(MAX_BPM - MIN_BPM);
             weightFrac = Math.min(1.0, Math.max(0.0, weightFrac));
 
