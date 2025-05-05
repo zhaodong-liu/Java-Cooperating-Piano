@@ -9,15 +9,17 @@ This project delivers a networked piano application built in Java that enables t
 With the option to substitute the final exam, this project demonstrates mastery of advanced Java features. The application architecture comprises the following components:
 
 * **Graphics**: Java Swing-based piano keyboard GUI with Metronome using graphical methods.
-* **Network Module**: TCP socket communication for note events and text messages.
-* **Concurrency Module**: Multi-threaded management of audio playback, recording, network I/O, metronome, and GUI events.
-* **Persistence Module**: File-based storage and retrieval of recorded sessions, real piano sample sound loading.
+* **Networking (sockets)**: TCP socket communication for note events and text messages.
+* **Thread concurrency**: Multi-threaded management of audio playback, recording, network I/O, metronome, and GUI events.
+* **File IO**: File-based storage and retrieval of recorded sessions, real piano sample sound loading.
 
 ### 3. Implementation Details
+#### 3.1 Graphics
+#### 3.2 Networking (sockets)
+#### 3.3 Thread Concurrenc
+#### 3.4 File IO
 
-#### 3.1 Thread Concurrency & Synchronization
-
-* **Where:** PlaybackManager, NetworkHandler, Metronome and GUI event handlers in PianoApp.
+* **Where:** PlaybackManager, NetworkHandler, Metronome, and GUI event handlers in PianoApp.
 * **Description:**
 
   * The `PendulumPanel` nested class in `Metronome.java` overrides `paintComponent` to draw the metronome housing and calibration scale.
@@ -28,7 +30,7 @@ With the option to substitute the final exam, this project demonstrates mastery 
   * A red weight rectangle (`fillRect`) moves along the rod based on `weightFrac`, which adjusts according to the current BPM; its outline is drawn in light gray for contrast.
   * All rendering occurs in `paintComponent` and is triggered by `repaint()` calls in the `update` and `reset` methods of `PendulumPanel`, ensuring smooth animations.### 6. Testing and Validation
 * Unit tests confirm that `RecordingManager` correctly writes and reads event sequences.
-* Simulated multi-user sessions on localhost verify synchronization and networking reliability.
+* Simulated multi-user sessions on localhost to verify synchronization and networking reliability.
 * GUI responsiveness is tested by rapid user input and simultaneous network events, ensuring no deadlocks.
 
 ### 7. Conclusion and Future Work
@@ -37,7 +39,7 @@ This project satisfies the course requirement by integrating concurrency, file I
 
 * Adding **JDBC** support to store session metadata in a database.
 * Enabling multi-room support and user authentication.
-* Enhancing audio timbre options via plugin architecture.
+* Enhancing audio timbre options via a plugin architecture.
 
 ---
 
