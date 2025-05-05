@@ -54,7 +54,29 @@ Client: connects via new Socket(host, port), then wraps InputStream/OutputStream
 Communication: All messages are encoded in JSON in two kinds: "MUSIC" and "CHAT". The server relays each incoming event to all other clients to keep GUIs and audio playback in sync.
 
 #### 3.3 Thread Concurrency
+##### Playback
+PlaybackManager: for each incoming noteOn event, spawns a new Thread (or submits a task to a fixed‐size ExecutorService) that:
+	1.	Opens the appropriate SourceDataLine.
+	2.	Streams audio buffer until note‐off or release.
+	3.	Closes line.
+##### Network Synchronization
+NetworkHandler: each socket connection uses its thread to read JSON messages and enqueuing them on a thread‐safe queue.
+##### Local Synchronization
+Shared state (e.g. activePlaybackNotes) stored in ConcurrentHashMap and ConcurrentSkipListSet to avoid explicitly synchronized blocks.
+<br>
+Timers and playback timestamps are tracked with AtomicLong to account for pause/resume delays safely across threads.
+ 
 #### 3.4 File IO
+##### Loading & Saving Recordings
+RecordingManager logs every note event (including velocity and timestamp) to a local file in JSON lines format, using BufferedWriter over FileWriter.
+<br>
+On “Save”, flushes buffer and closes stream; on “Load”, reads file line by line with BufferedReader, reconstructs events, and replays them in order.
+##### Piano Sample Files
+Piano samples (.wav) are loaded at startup and cached in memory for low‐latency playback.
+
+
+
+
 
 * **Where:** PlaybackManager, NetworkHandler, Metronome, and GUI event handlers in PianoApp.
 * **Description:**
