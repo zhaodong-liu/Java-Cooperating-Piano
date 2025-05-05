@@ -16,48 +16,48 @@ This project application architecture comprises the following components:
 
 **File IO**: File-based storage and retrieval of recorded sessions, real piano sample sound loading.
 
-
-
 ### 3. Implementation Details
 #### 3.1 Graphics
 ##### Java Swing/AWT Foundation
-Built the entire UI atop the standard Swing toolkit, using lightweight components (JFrame, JPanel, JButton, JSpinner, etc.) and relying on AWT for low-level drawing primitives.
+Built the entire UI atop the standard Swing toolkit, using lightweight components (JFrame, JPanel, JButton, JSpinner, etc.).
 ##### Custom Painting via paintComponent
-Encapsulated all visual elements (housing, scale, pendulum) in a dedicated JPanel subclass that overrides paintComponent(Graphics), giving full control over every frame’s rendering.
+Encapsulated all visual elements (housing, scale, pendulum) in a dedicated JPanel subclass that overrides paintComponent(Graphics).
 ##### Vector-Based Drawing with Graphics2D
-Cast to Graphics2D to draw shapes and text, ensuring resolution-independent, crisp graphics across display sizes.
+Cast to Graphics2D to draw a virtual metronome with a shape, simulated pendulum, and a balance weight. 
 ##### Affine Transforms for Animation
 I also learned to use AffineTransform (translate + rotate) on the Graphics2D context to handle pendulum rotation about its pivot, rather than manually computing rotated coordinates.
 
 #### 3.2 Networking (sockets)
 ##### Client–Server Architecture
-Server: a dedicated ServerSocket listening on port 5190; accepts incoming Socket connections and spawns a handler thread for each client.
-<br>
-Client: connects via new Socket(host, port), then wraps InputStream/OutputStream with DataInputStream/DataOutputStream for framed, UTF-8 chat and event messages.
-Communication: All messages are encoded in JSON in two kinds: "MUSIC" and "CHAT". The server relays each incoming event to all other clients to keep GUIs and audio playback in sync.
+**Server**: a dedicated ServerSocket listening on port 5190; accepts incoming Socket connections and spawns a handler thread for each client.
+
+**Client**: connects via new Socket(host, port), then wraps InputStream/OutputStream with DataInputStream/DataOutputStream for framed, chat and event messages.
+
+**Communication**: All messages are encoded in JSON in two kinds: "MUSIC" and "CHAT". The server relays each incoming event to all other clients to keep GUIs and audio playback in sync.
 
 #### 3.3 Thread Concurrency
 ##### Playback
-PlaybackManager: for each incoming noteOn event, spawns a new Thread (or submits a task to a fixed‐size ExecutorService) that:
+For each incoming noteOn event, spawns a new Thread (or submits a task to a fixed‐size ExecutorService) that:
 
 1. Opens the appropriate SourceDataLine.
 2. Streams audio buffer until note‐off or release.
 3. Closes line.
 
 ##### Network Synchronization
-NetworkHandler: each socket connection uses its thread to read JSON messages and enqueuing them on a thread‐safe queue.
+Each socket connection uses its thread to read JSON messages and enqueuing them on a thread‐safe queue.
 ##### Local Synchronization
 Shared state (e.g. activePlaybackNotes) stored in ConcurrentHashMap and ConcurrentSkipListSet to avoid explicitly synchronized blocks.
-<br>
+
 Timers and playback timestamps are tracked with AtomicLong to account for pause/resume delays safely across threads.
 
 #### 3.4 File IO
 ##### Loading & Saving Recordings
 The notes are saved in format: note,startTime,endTime, timbre, which is easy to code and modify outside. RecordingManager logs every note event (including velocity and timestamp) to a local file in JSON lines format, using BufferedWriter over FileWriter.
-<br>
+
 On “Save”, flushes buffer and closes stream; on “Load”, reads file line by line with BufferedReader, reconstructs events, and replays them in order.
+
 ##### Piano Sample Files
-Piano samples (.wav) are loaded at startup and cached in memory for low‐latency playback.
+Piano samples (.wav) are loaded at startup and cached in memory for low‐latency playback. 
 
 
 
@@ -74,7 +74,7 @@ For the electronic timbres, the frequency of each note was stored in advance, an
 | Triangle | `(2.0 / Math.PI) * Math.asin(Math.sin(phase))` |
 | Sawtooth | `(2.0 * (phase / (2.0 * Math.PI))) - 1.0`      |
 
-For the real piano sound, an open-source sound pack [TEDAgame's Piano Pack](https://freesound.org/people/TEDAgame/packs/25405/) was used as the sound sample. The sound files will be loaded in advance and be played when the key is clicked. 
+For the real piano sound, an open-source sound pack [TEDAgame's Piano Pack](https://freesound.org/people/TEDAgame/packs/25405/) was used as the sound sample.
 <br>
 A metronome is also built into this App. A thread is responsible for playing beep sounds from the metronome, hence avoiding conflict with the piano keyboard.
 <br>
