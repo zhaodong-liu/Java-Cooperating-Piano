@@ -2,16 +2,16 @@
 
 ### 1. Abstract
 
-This project delivers a networked piano application built in Java Swing that enables two users to play and chat in real time, record their joint session to a file, and replay it with accurate timing. The implementation addresses four core topics from the course requirements—thread concurrency with synchronization, file I/O, networking via sockets, and GUI graphics—in distinct modules to ensure clarity, modularity, and maintainability.
+This project delivers a networked piano application built in Java that enables two users to play and chat in real time, record the piano session to a file, and replay it with accurate timing. The implementation addresses four core topics from the course requirements—thread concurrency with synchronization, file I/O, networking via sockets, and GUI graphics—in distinct modules to ensure clarity, modularity, and maintainability.
 
 ### 2. Introduction
 
 With the option to substitute the final exam, this project demonstrates mastery of advanced Java features. The application architecture comprises the following components:
 
-* **UI Module**: Java Swing-based piano keyboard and chat panel.
+* **Graphics**: Java Swing-based piano keyboard GUI with Metronome using graphical methods.
 * **Network Module**: TCP socket communication for note events and text messages.
-* **Concurrency Module**: Multi-threaded management of audio playback, recording, network I/O, and GUI events.
-* **Persistence Module**: File-based storage and retrieval of recorded sessions.
+* **Concurrency Module**: Multi-threaded management of audio playback, recording, network I/O, metronome, and GUI events.
+* **Persistence Module**: File-based storage and retrieval of recorded sessions, real piano sample sound loading.
 
 ### 3. Course Requirement Topics
 
