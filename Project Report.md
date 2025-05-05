@@ -16,26 +16,6 @@ With the option to substitute the final exam, this project demonstrates mastery 
 
 
 ### 3. Implementation Details
-#### Soundplay: 
-A thread is started for each note during the initialization process, and then the thread will listen for the signal to play the sound.
-<br>
-For the electronic timbres, the frequency of each note was stored in advance, and the tone generator could make up certain kinds of waves(sine, square, etc.) with the corresponding frequency. 
-<br>
-  | Waveform   | Formula                          |
-  |------------|-----------------------------------|
-  | Sine       | `Math.sin(phase)`                 |
-  | Square     | `Math.signum(Math.sin(phase))`     |
-  | Triangle   | `(2.0 / Math.PI) * Math.asin(Math.sin(phase))` |
-  | Sawtooth   | `(2.0 * (phase / (2.0 * Math.PI))) - 1.0` |
-<br>
-For the real piano sound, an open-source sound pack [TEDAgame's Piano Pack](https://freesound.org/people/TEDAgame/packs/25405/) was used as the sound sample. The sound files will be loaded in advance and be played when the key is clicked. 
-<br>
-A metronome is also built into this App. A thread is responsible for playing beep sounds from the metronome, hence avoiding conflict with the piano keyboard.
-<br>
-The chord is implemented by a map to indicate the pitch difference between different chords.
-
-#### (Play from/Save to) File:
-The notes are saved in format: note,startTime,endTime, timbre, which is easy to code and modify outside. It is possible to compose some music in this format and play it in the App. Currently, two music examples are provided in the music_example folder. Load and try!
 #### 3.1 Graphics
 ##### Java Swing/AWT Foundation
 Built the entire UI atop the standard Swing toolkit, using lightweight components (JFrame, JPanel, JButton, JSpinner, etc.) and relying on AWT for low-level drawing primitives.
@@ -68,7 +48,7 @@ Timers and playback timestamps are tracked with AtomicLong to account for pause/
  
 #### 3.4 File IO
 ##### Loading & Saving Recordings
-RecordingManager logs every note event (including velocity and timestamp) to a local file in JSON lines format, using BufferedWriter over FileWriter.
+The notes are saved in format: note,startTime,endTime, timbre, which is easy to code and modify outside. RecordingManager logs every note event (including velocity and timestamp) to a local file in JSON lines format, using BufferedWriter over FileWriter.
 <br>
 On “Save”, flushes buffer and closes stream; on “Load”, reads file line by line with BufferedReader, reconstructs events, and replays them in order.
 ##### Piano Sample Files
@@ -77,22 +57,26 @@ Piano samples (.wav) are loaded at startup and cached in memory for low‐latenc
 
 
 
+#### Soundplay Details: 
+A thread is started for each note during the initialization process, and then the thread will listen for the signal to play the sound.
+<br>
+For the electronic timbres, the frequency of each note was stored in advance, and the tone generator could make up certain kinds of waves(sine, square, etc.) with the corresponding frequency. 
+<br>
+  | Waveform   | Formula                          |
+  |------------|-----------------------------------|
+  | Sine       | `Math.sin(phase)`                 |
+  | Square     | `Math.signum(Math.sin(phase))`     |
+  | Triangle   | `(2.0 / Math.PI) * Math.asin(Math.sin(phase))` |
+  | Sawtooth   | `(2.0 * (phase / (2.0 * Math.PI))) - 1.0` |
+<br>
+For the real piano sound, an open-source sound pack [TEDAgame's Piano Pack](https://freesound.org/people/TEDAgame/packs/25405/) was used as the sound sample. The sound files will be loaded in advance and be played when the key is clicked. 
+<br>
+A metronome is also built into this App. A thread is responsible for playing beep sounds from the metronome, hence avoiding conflict with the piano keyboard.
+<br>
+The chord is implemented by a map to indicate the pitch difference between different chords.
 
-* **Where:** PlaybackManager, NetworkHandler, Metronome, and GUI event handlers in PianoApp.
-* **Description:**
 
-  * The `PendulumPanel` nested class in `Metronome.java` overrides `paintComponent` to draw the metronome housing and calibration scale.
-  * It renders a black polygon housing using a `Polygon` with points calculated from the panel dimensions (`w` and `h`).
-  * A vertical scale with tick marks (every 10 BPM) is drawn along a center line between `scaleTop` and `scaleBot`, using `drawLine` in white.
-  * The pivot point is drawn as a light-gray circle at the bottom center (`fillOval`), serving as the anchor for the pendulum.
-  * The pendulum rod is drawn by applying an `AffineTransform` rotation (`angle` computed from beat timing) and drawing a thick gray line upward from the pivot.
-  * A red weight rectangle (`fillRect`) moves along the rod based on `weightFrac`, which adjusts according to the current BPM; its outline is drawn in light gray for contrast.
-  * All rendering occurs in `paintComponent` and is triggered by `repaint()` calls in the `update` and `reset` methods of `PendulumPanel`, ensuring smooth animations.### 6. Testing and Validation
-* Unit tests confirm that `RecordingManager` correctly writes and reads event sequences.
-* Simulated multi-user sessions on localhost to verify synchronization and networking reliability.
-* GUI responsiveness is tested by rapid user input and simultaneous network events, ensuring no deadlocks.
-
-### 7. Conclusion and Future Work
+### 4. Conclusion and Future Work
 
 This project satisfies the course requirement by integrating concurrency, file I/O, socket networking, and GUI graphics in a cohesive Java application. Future enhancements could include:
 
