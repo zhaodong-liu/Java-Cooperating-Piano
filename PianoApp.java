@@ -23,16 +23,14 @@ public class PianoApp {
     private static PrintWriter out;
     private static BufferedReader in;
     private static ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
-    static boolean isRecording = false;
-    static long recordingStartTime;
     private static String username;
     private static JCheckBox autoChordCheck;
     private static JComboBox<String> chordTypeSelector;
     private static JTextArea chatArea;
     private static JTextField chatInput;
     private static java.util.List<String[]> currentPlaybackEvents = new java.util.ArrayList<>();
-    private static JProgressBar playbackBar;
-    private static JButton playResumeBtn;
+    // private static JProgressBar playbackBar;
+    // private static JButton playResumeBtn;
     private static JLabel currentNoteLabel;
     private static JLabel currentOctaveLabel;
     private static KeyboardManager keyboardManager;
@@ -41,6 +39,9 @@ public class PianoApp {
     public static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
 
     public static String TIMBRE = "sine";
+
+    static boolean isRecording = false;
+    static long recordingStartTime;
 
     static {
         WHITE_KEYS.put("C4", 261.63);  WHITE_KEYS.put("D4", 293.66);  WHITE_KEYS.put("E4", 329.63);
@@ -491,18 +492,22 @@ public class PianoApp {
     private static void listenForMessages() {
         try {
             String line;
-            while ((line = in.readLine()) != null) {
-                // System.out.println("[CLIENT RECEIVE] Got from server: " + line);
+            while (true) {
+                line = in.readLine();
+                if (line == null) {
+                    // disconnect and throw exception
+                    throw new IOException("Server closed the connection");
+                }
+    
                 int firstComma = line.indexOf(',');
                 if (firstComma != -1) {
                     String category = line.substring(0, firstComma);
-                    String content = line.substring(firstComma + 1);
-
-                    if (category.equals("MUSIC")) {
-                        handleMusicMessage(line);  // pass full line: MUSIC,NOTE_ON,C5,sine
-                    } else if (category.equals("NOTE_ON") || category.equals("NOTE_OFF")) {
-                        handleMusicMessage(line);  // pass: NOTE_ON,C5,sine
-                    
+                    String content  = line.substring(firstComma + 1);
+    
+                    if (category.equals("MUSIC") ||
+                        category.equals("NOTE_ON") ||
+                        category.equals("NOTE_OFF")) {
+                        handleMusicMessage(line);
                     } else if (category.equals("CHAT")) {
                         SwingUtilities.invokeLater(() -> {
                             chatArea.append(content + "\n");
@@ -512,7 +517,17 @@ public class PianoApp {
                 }
             }
         } catch (IOException e) {
-            System.out.println("Disconnected from server.");
+            SwingUtilities.invokeLater(() -> {
+                JOptionPane.showMessageDialog(
+                    null,
+                    "disconnected from the server:" + e.getMessage(),
+                    "Connection Error",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                // disable chat input
+                chatInput.setEditable(false);
+            });
+            System.out.println("Disconnected from server:  " + e.getMessage());
         }
     }
 
