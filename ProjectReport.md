@@ -61,14 +61,17 @@ Piano samples (.wav) are loaded at startup and cached in memory for low‐latenc
 A thread is started for each note during the initialization process, and then the thread will listen for the signal to play the sound.
 <br>
 For the electronic timbres, the frequency of each note was stored in advance, and the tone generator could make up certain kinds of waves(sine, square, etc.) with the corresponding frequency. 
-<br>
-  | Waveform   | Formula                          |
-  |------------|-----------------------------------|
-  | Sine       | `Math.sin(phase)`                 |
-  | Square     | `Math.signum(Math.sin(phase))`     |
-  | Triangle   | `(2.0 / Math.PI) * Math.asin(Math.sin(phase))` |
-  | Sawtooth   | `(2.0 * (phase / (2.0 * Math.PI))) - 1.0` |
-<br>
++----------+-----------------------------------------------------------+
+| Waveform | Formula                                                   |
++==========+===========================================================+
+| Sine     | Math.sin(phase)                                           |
++----------+-----------------------------------------------------------+
+| Square   | Math.signum(Math.sin(phase))                              |
++----------+-----------------------------------------------------------+
+| Triangle | (2.0 / Math.PI) * Math.asin(Math.sin(phase))              |
++----------+-----------------------------------------------------------+
+| Sawtooth | (2.0 * (phase / (2.0 * Math.PI))) - 1.0                   |
++----------+-----------------------------------------------------------+
 For the real piano sound, an open-source sound pack [TEDAgame's Piano Pack](https://freesound.org/people/TEDAgame/packs/25405/) was used as the sound sample. The sound files will be loaded in advance and be played when the key is clicked. 
 <br>
 A metronome is also built into this App. A thread is responsible for playing beep sounds from the metronome, hence avoiding conflict with the piano keyboard.
@@ -80,7 +83,7 @@ The chord is implemented by a map to indicate the pitch difference between diffe
 
 This project satisfies the course requirement by integrating concurrency, file I/O, socket networking, and GUI graphics in a cohesive Java application. Future enhancements could include:
 
-* Adding **JDBC** support to store session metadata in a database.
+* Adding JDBC support to store session metadata in a database.
 * Enabling multi-room support and user authentication.
 * Enhancing audio timbre options via a plugin architecture.
 
