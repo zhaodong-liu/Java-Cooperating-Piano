@@ -13,6 +13,31 @@ With the option to substitute the final exam, this project demonstrates mastery 
 * **Thread concurrency**: Multi-threaded management of audio playback, recording, network I/O, metronome, and GUI events.
 * **File IO**: File-based storage and retrieval of recorded sessions, real piano sample sound loading.
 
+## Implementation: 
+### Soundplay: 
+A thread is started for each note during the initialization process, and then the thread will listen for the signal to play the sound.
+<br>
+For the electronic timbres, the frequency of each note was stored in advance, and the tone generator could make up certain kinds of waves(sine, square, etc.) with the corresponding frequency. 
+<br>
+  | Waveform   | Formula                          |
+  |------------|-----------------------------------|
+  | Sine       | `Math.sin(phase)`                 |
+  | Square     | `Math.signum(Math.sin(phase))`     |
+  | Triangle   | `(2.0 / Math.PI) * Math.asin(Math.sin(phase))` |
+  | Sawtooth   | `(2.0 * (phase / (2.0 * Math.PI))) - 1.0` |
+<br>
+For the real piano sound, an open-source sound pack [TEDAgame's Piano Pack](https://freesound.org/people/TEDAgame/packs/25405/) was used as the sound sample. The sound files will be loaded in advance and be played when the key is clicked. 
+<br>
+A metronome is also built into this App. A thread is responsible for playing beep sounds from the metronome, hence avoiding conflict with the piano keyboard.
+<br>
+The chord is implemented by a map to indicate the pitch difference between different chords.
+
+### Server:
+The server handles the connection between users and listens for two kinds of messages: "MUSIC" and "CHAT", once received message, it will broadcast the message to all the users.
+
+### (Play from/Save to) File:
+The notes are saved in format: note,startTime,endTime, timbre, which is easy to code and modify outside. It is possible to compose some music in this format and play it in the App. Currently, two music examples are provided in the music_example folder. Load and try!
+
 ### 3. Implementation Details
 #### 3.1 Graphics
 #### 3.2 Networking (sockets)
