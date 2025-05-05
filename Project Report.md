@@ -13,25 +13,11 @@ With the option to substitute the final exam, this project demonstrates mastery 
 * **Concurrency Module**: Multi-threaded management of audio playback, recording, network I/O, metronome, and GUI events.
 * **Persistence Module**: File-based storage and retrieval of recorded sessions, real piano sample sound loading.
 
-### 3. Course Requirement Topics
+### 3. Implementation Details
 
-1. **Thread Concurrency & Synchronization**
-2. **File I/O**
-3. **Networking (Sockets)**
-4. **Graphics (Swing GUI)**
+#### 3.1 Thread Concurrency & Synchronization
 
-### 4. System Architecture
-
-* **PianoApp.java**: Entry point; initializes GUI and spawns network listener thread.
-* **PlaybackManager.java**: Handles audio scheduling and playback in its own thread, synchronized to prevent race conditions when pausing/resuming.
-* **RecordingManager.java**: Manages write/read of session data (timestamps and notes) using `BufferedOutputStream` and `BufferedInputStream`.
-* **NetworkHandler.java**: Maintains a `ServerSocket` or `Socket` in a dedicated thread, dispatching incoming messages to the GUI and the `PlaybackManager`.
-
-### 5. Implementation Details
-
-#### 5.1 Thread Concurrency & Synchronization
-
-* **Where:** `PlaybackManager`, `NetworkHandler`, and GUI event handlers in `PianoApp`.
+* **Where:** PlaybackManager, NetworkHandler, Metronome and GUI event handlers in PianoApp.
 * **Description:**
 
   * The `PendulumPanel` nested class in `Metronome.java` overrides `paintComponent` to draw the metronome housing and calibration scale.
@@ -55,4 +41,4 @@ This project satisfies the course requirement by integrating concurrency, file I
 
 ---
 
-*Report prepared by \[Your Name], submitted May 10, 2025.*
+*Report prepared by \[Zhaodong Liu], submitted May 10, 2025.*
