@@ -13,8 +13,10 @@ With the option to substitute the final exam, this project demonstrates mastery 
 * **Thread concurrency**: Multi-threaded management of audio playback, recording, network I/O, metronome, and GUI events.
 * **File IO**: File-based storage and retrieval of recorded sessions, real piano sample sound loading.
 
-## Implementation: 
-### Soundplay: 
+
+
+### 3. Implementation Details
+#### Soundplay: 
 A thread is started for each note during the initialization process, and then the thread will listen for the signal to play the sound.
 <br>
 For the electronic timbres, the frequency of each note was stored in advance, and the tone generator could make up certain kinds of waves(sine, square, etc.) with the corresponding frequency. 
@@ -32,16 +34,26 @@ A metronome is also built into this App. A thread is responsible for playing bee
 <br>
 The chord is implemented by a map to indicate the pitch difference between different chords.
 
-### Server:
-The server handles the connection between users and listens for two kinds of messages: "MUSIC" and "CHAT", once received message, it will broadcast the message to all the users.
-
-### (Play from/Save to) File:
+#### (Play from/Save to) File:
 The notes are saved in format: note,startTime,endTime, timbre, which is easy to code and modify outside. It is possible to compose some music in this format and play it in the App. Currently, two music examples are provided in the music_example folder. Load and try!
-
-### 3. Implementation Details
 #### 3.1 Graphics
+##### Java Swing/AWT Foundation
+Built the entire UI atop the standard Swing toolkit, using lightweight components (JFrame, JPanel, JButton, JSpinner, etc.) and relying on AWT for low-level drawing primitives.
+##### Custom Painting via paintComponent
+Encapsulated all visual elements (housing, scale, pendulum) in a dedicated JPanel subclass that overrides paintComponent(Graphics), giving full control over every frame’s rendering.
+##### Vector-Based Drawing with Graphics2D
+Cast to Graphics2D to draw shapes (lines, polygons, ovals, rectangles) and text, ensuring resolution-independent, crisp graphics across display sizes.
+##### Affine Transforms for Animation
+I also learned to use AffineTransform (translate + rotate) on the Graphics2D context to handle pendulum rotation about its pivot, rather than manually computing rotated coordinates.
+
 #### 3.2 Networking (sockets)
-#### 3.3 Thread Concurrenc
+##### Client–Server Architecture
+Server: a dedicated ServerSocket listening on port 5190; accepts incoming Socket connections and spawns a handler thread for each client.
+<br>
+Client: connects via new Socket(host, port), then wraps InputStream/OutputStream with DataInputStream/DataOutputStream for framed, UTF-8 chat and event messages.
+Communication: All messages are encoded in JSON in two kinds: "MUSIC" and "CHAT". The server relays each incoming event to all other clients to keep GUIs and audio playback in sync.
+
+#### 3.3 Thread Concurrency
 #### 3.4 File IO
 
 * **Where:** PlaybackManager, NetworkHandler, Metronome, and GUI event handlers in PianoApp.
