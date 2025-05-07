@@ -24,6 +24,11 @@ This project application architecture comprises the following components:
 I built the entire UI using the standard Swing toolkit (JFrame, JPanel, JButton, JSpinner, etc.).
 ##### Vector-Based Drawing with Graphics2D
 Cast to Graphics2D to draw a virtual metronome with a shape, simulated pendulum, and a balance weight. 
+
+<br>
+
+<br>
+
 ##### Affine Transforms for Animation
 I also learned to use AffineTransform (translate + rotate) on the Graphics2D context to handle pendulum rotation about its pivot, rather than manually computing rotated coordinates. Because the metronome rotates fast and this method can achieve a good effect.
 
@@ -51,8 +56,6 @@ Shared state (e.g. activePlaybackNotes) stored in ConcurrentHashMap and Concurre
 Timers and playback timestamps are also tracked to account for pause/resume delays safely across threads.
 
 
-
-<br>
 
 #### 3.4 File IO
 ##### Loading & Saving Recordings
