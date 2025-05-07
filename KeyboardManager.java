@@ -14,7 +14,7 @@ public class KeyboardManager {
     private final JComboBox<String> chordTypeSelector;
     private final Map<String, Long> activeNotes = new java.util.HashMap<>();
 
-    // Mapping keyboard keys to note names (without octave number)
+    // Mapping keyboard keys to note names
     private static final Map<Integer, String> KEY_TO_NOTE = Map.ofEntries(
         Map.entry(KeyEvent.VK_A, "C"),
         Map.entry(KeyEvent.VK_W, "C#"),
@@ -81,10 +81,8 @@ public class KeyboardManager {
                         ToneGenerator.playToneContinuous(freq, note, PianoApp.TIMBRE);
                         PianoApp.pressCount.put(note, 1);
     
-                        // Send network message
                         PianoApp.sendMessage("NOTE_ON," + note + "," + PianoApp.TIMBRE);
     
-                        // RECORDING ADDITION:
                         if (PianoApp.isRecording) {
                             long offset = System.currentTimeMillis() - PianoApp.recordingStartTime;
                             synchronized (PianoApp.rawEvents) {
@@ -93,7 +91,6 @@ public class KeyboardManager {
                             activeNotes.put(note, offset);
                         }
     
-                        // UI color
                         JButton keyBtn = PianoApp.keyButtons.get(note);
                         if (keyBtn != null) {
                             keyBtn.setBackground(note.contains("#") ? java.awt.Color.GRAY : java.awt.Color.CYAN);
@@ -141,7 +138,6 @@ public class KeyboardManager {
                     // Send network message
                     PianoApp.sendMessage("NOTE_OFF," + note + "," + PianoApp.TIMBRE);
                 
-                    // RECORDING ADDITION:
                     if (PianoApp.isRecording && activeNotes.containsKey(note)) {
                         long offset = System.currentTimeMillis() - PianoApp.recordingStartTime;
                         synchronized (PianoApp.rawEvents) {
@@ -150,7 +146,6 @@ public class KeyboardManager {
                         activeNotes.remove(note);
                     }
                 
-                    // UI color
                     JButton keyBtn = PianoApp.keyButtons.get(note);
                     if (keyBtn != null) {
                         keyBtn.setBackground(note.contains("#") ? java.awt.Color.BLACK : java.awt.Color.WHITE);

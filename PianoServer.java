@@ -38,7 +38,7 @@ public class PianoServer {
         @Override
         public void run() {
             try {
-                // first message received is the username
+                // first message receive the username
                 username = in.readLine();
                 if (username == null) {
                     closeConnection();

@@ -13,7 +13,7 @@ public class Metronome {
     private Timer driver;
     private long nextBeatTime;
     private int intervalMs;
-    private int direction = 1;   // +1 swing right next, –1 swing left next
+    private int direction = 1; 
 
     public Metronome() {
         panel = new JPanel(new BorderLayout());
@@ -121,7 +121,7 @@ public class Metronome {
 
             int topY = 20, botY = h - 20;
 
-            // Draw housing
+
             Polygon house = new Polygon(
                 new int[]{w/2-60, w/2+60, w/2+30, w/2-30},
                 new int[]{botY, botY, topY, topY}, 4);
@@ -141,23 +141,19 @@ public class Metronome {
                 g2.drawLine(scaleX-5, y, scaleX+5, y);
             }
 
-            // Draw pivot
             int cx = w/2, cy = botY;
             g2.setColor(Color.LIGHT_GRAY);
             g2.fillOval(cx-6, cy-6, 12, 12);
 
-            // Draw pendulum
             AffineTransform old = g2.getTransform();
             g2.translate(cx, cy);
             g2.rotate(angle);
 
-            // Rod
             int rodLen = botY - topY - 20;
             g2.setColor(Color.GRAY);
             g2.setStroke(new BasicStroke(4));
             g2.drawLine(0, 0, 0, -rodLen);
 
-            // Weight
             int weightW = 20, weightH = 12;
             int minPos = -20, maxPos = -rodLen + 20;
             int wy = minPos + (int)((maxPos-minPos)*weightFrac) - weightH/2;

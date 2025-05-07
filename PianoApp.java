@@ -13,9 +13,7 @@ import java.util.function.Supplier;
 import javax.swing.*;
 
 public class PianoApp {
-    public static final java.util.Map<String, Double> WHITE_KEYS = new java.util.LinkedHashMap<>();
-    public static final java.util.Map<String, Double> BLACK_KEYS = new java.util.LinkedHashMap<>();
-    static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
+    
     private static final java.util.Map<String, Long> activeNotes = new java.util.HashMap<>();
 
     private static PlaybackManager playbackManager;
@@ -35,11 +33,14 @@ public class PianoApp {
     private static JLabel currentOctaveLabel;
     private static KeyboardManager keyboardManager;
 
+    public static final java.util.Map<String, Double> WHITE_KEYS = new java.util.LinkedHashMap<>();
+    public static final java.util.Map<String, Double> BLACK_KEYS = new java.util.LinkedHashMap<>();
     public static final java.util.Map<String, JButton> keyButtons = new java.util.HashMap<>();
     public static final java.util.Map<String, Integer> pressCount = new java.util.concurrent.ConcurrentHashMap<>();
 
     public static String TIMBRE = "sine";
 
+    static final java.util.List<String[]> rawEvents = new java.util.ArrayList<>();
     static boolean isRecording = false;
     static long recordingStartTime;
 
@@ -63,7 +64,7 @@ public class PianoApp {
 
 
     public static void main(String[] args) throws IOException {
-        // 1) Connect to server
+        //Connect to server
         String serverIP = JOptionPane.showInputDialog("Enter server IP:", "localhost");
         String portStr  = JOptionPane.showInputDialog("Enter port:",    "5190");
         username = JOptionPane.showInputDialog("Enter your username:");
@@ -80,31 +81,29 @@ public class PianoApp {
             System.exit(1);
         }
     
-        // 2) Initialize audio & keys
+        // Initialize audio & keys
         ToneGenerator.loadPianoSamples();
         Set<String> allKeys = new HashSet<>();
         allKeys.addAll(WHITE_KEYS.keySet());
         allKeys.addAll(BLACK_KEYS.keySet());
         ToneGenerator.initializeKeys(allKeys);
-    
-        // 3) Compute layout sizes
         int whiteKeyWidth   = 60;
         int numberOfWhite   = WHITE_KEYS.size();
         int pianoWidth      = whiteKeyWidth * numberOfWhite;
         int pianoHeight     = 300;
     
-        // 4) Frame setup
+        // Frame setup
         JFrame frame = new JFrame("Cooperating Piano");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         frame.setResizable(false);
     
-        // 5) Top-level panels
+        //  top main panels
         JPanel topPanel     = new JPanel(new BorderLayout());
         JPanel controlPanel = new JPanel(new BorderLayout());
         controlPanel.setPreferredSize(new Dimension((int)(pianoWidth * 2.0/3), 300));
     
-        // —— Volume panel (WEST) ——
+        // volume panel
         JPanel volumePanel = new JPanel();
         volumePanel.setBorder(BorderFactory.createTitledBorder("Vol"));
         volumePanel.setLayout(new BoxLayout(volumePanel, BoxLayout.Y_AXIS));
@@ -120,13 +119,11 @@ public class PianoApp {
         });
         volumePanel.add(volumeLabel);
         volumePanel.add(volumeSlider);
-    
-        // Measure and compute half-height of volumePanel
         Dimension volDim = volumePanel.getPreferredSize();
         int volH = volDim.height;       // expected 200
-        int halfH = volH / 2;           // e.g. 100
+        int halfH = volH / 2;
     
-        // —— Metronome panel (EAST) ——
+        // metronome panel
         Metronome metronome = new Metronome();
         JPanel metroPanel    = metronome.getPanel();
         metroPanel.setPreferredSize(new Dimension(212,200));
@@ -134,7 +131,7 @@ public class PianoApp {
         metroWrapper.setBorder(BorderFactory.createEmptyBorder(0,5,0,0));
         metroWrapper.add(metroPanel, BorderLayout.CENTER);
     
-        // —— Record & Playback panel —— 
+        // reocrd and playback panel
         JPanel recordPanel = new JPanel(new GridBagLayout());
         recordPanel.setBorder(BorderFactory.createTitledBorder("Recording & Playback"));
     
@@ -159,35 +156,30 @@ public class PianoApp {
         gbc.weighty = 0.0;
         gbc.ipady   = 20; 
     
-        // First row
+        // row1: record, stop, save, reset buttons
         gbc.gridy = 0;
         gbc.gridx = 0; recordPanel.add(recordBtn, gbc);
         gbc.gridx = 1; recordPanel.add(stopBtn,   gbc);
         gbc.gridx = 2; recordPanel.add(saveBtn,   gbc);
         gbc.gridx = 3; recordPanel.add(resetBtn,  gbc);
     
-        // Second row: load, play/resume, then progress bar spanning two columns
+        // row2: load, play/resume, then progress bar spanning two columns
         gbc.gridy     = 1;
         gbc.gridwidth = 1;
         gbc.weightx   = 0.0;
         gbc.gridx     = 0; recordPanel.add(loadBtn,      gbc);
         gbc.gridx     = 1; recordPanel.add(playResumeBtn,gbc);
-
-        // now make the bar span cols 2 & 3
-        gbc.gridx     = 2;
+        gbc.gridx     = 2;      //  bar span cols 2 & 3
         gbc.gridwidth = 2;
-        gbc.weightx   = 1.0;  // let that two-cell span grow
+        gbc.weightx   = 1.0;  // let the two-cell span grow
         recordPanel.add(playbackBar, gbc);
 
-        // reset for future adds
         gbc.gridwidth = 1;
         gbc.weightx   = 0.0;
-    
-        // Enforce half-height on recordPanel
         recordPanel.setPreferredSize(new Dimension(recordPanel.getPreferredSize().width, halfH));
         recordPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, halfH));
     
-        // —— Play Setting panels (Timbre/Chord & Note/Octave) —— 
+        // Play Setting (Timbre/Chord & Note/Octave)
         JPanel leftPanel  = new JPanel(new GridLayout(2,2,5,5));
         JLabel timbreLabel = new JLabel("Timbre:");
         JComboBox<String> timbreSelector = new JComboBox<>(new String[]{"sine","square","triangle","sawtooth","piano"});
@@ -217,8 +209,6 @@ public class PianoApp {
         optionsContainer.setBorder(BorderFactory.createTitledBorder("Play Setting"));
         optionsContainer.add(leftPanel);
         optionsContainer.add(rightPanel);
-    
-        // Enforce half-height on optionsContainer
         optionsContainer.setPreferredSize(new Dimension(optionsContainer.getPreferredSize().width, halfH));
         optionsContainer.setMaximumSize(new Dimension(Integer.MAX_VALUE, halfH));
     
@@ -227,12 +217,12 @@ public class PianoApp {
         functionGroupPanel.add(recordPanel);
         functionGroupPanel.add(optionsContainer);
     
-        // —— Assemble controlPanel —— 
+        // put controlPanel together 
         controlPanel.add(volumePanel,        BorderLayout.WEST);
         controlPanel.add(functionGroupPanel, BorderLayout.CENTER);
         controlPanel.add(metroWrapper,       BorderLayout.EAST);
     
-        // —— Chat panel —— 
+        // chat
         JPanel chatPanel = new JPanel(new BorderLayout());
         chatPanel.setPreferredSize(new Dimension(pianoWidth/3,300));
         chatArea = new JTextArea(8,30);
@@ -251,7 +241,7 @@ public class PianoApp {
         topPanel.add(controlPanel,BorderLayout.CENTER);
         topPanel.add(chatPanel,   BorderLayout.EAST);
     
-        // —— Piano panel —— 
+        // piano panel
         JLayeredPane layeredPane = createPiano();
         layeredPane.setPreferredSize(new Dimension(pianoWidth,pianoHeight));
         frame.add(topPanel,    BorderLayout.NORTH);
@@ -260,52 +250,51 @@ public class PianoApp {
         frame.setSize(pianoWidth, pianoHeight + topPanel.getPreferredSize().height);
         frame.setVisible(true);
 
-        // Set up key bindings on the frame's root pane
+        // set up key bindings
         InputMap inputMap = frame.getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
         ActionMap actionMap = frame.getRootPane().getActionMap();
-
-        // Bind all note keys
         for (int keyCode : KeyboardManager.getSupportedKeyCodes()) {
-            // Press action
+            // Press 
             inputMap.put(KeyStroke.getKeyStroke(keyCode, 0, false), "press_" + keyCode);
             actionMap.put("press_" + keyCode, new AbstractAction() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
                     if (chatInput.isFocusOwner()) {
-                        return;  // Skip if the chat box is focused
+                        return;  // Skip if the chat box is focused, avoid playing in typing
                     }
                     keyboardManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
                 }
             });
 
-            // Release action
+            // Release
             inputMap.put(KeyStroke.getKeyStroke(keyCode, 0, true), "release_" + keyCode);
             actionMap.put("release_" + keyCode, new AbstractAction() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
                     if (chatInput.isFocusOwner()) {
-                        return;  // Skip if the chat box is focused
+                        return;  // Skip if the chat box is focused, avoid playing in typing too
                     }
                     keyboardManager.handleKeyRelease(new KeyEvent(frame, KeyEvent.KEY_RELEASED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
                 }
             });
         }
 
-        // Bind octave switch keys: 4/5/6/7
+        // bind octave switch keys: 4/5/6/7
         for (int keyCode : new int[]{KeyEvent.VK_4, KeyEvent.VK_5, KeyEvent.VK_6, KeyEvent.VK_7}) {
             inputMap.put(KeyStroke.getKeyStroke(keyCode, 0, false), "press_" + keyCode);
             actionMap.put("press_" + keyCode, new AbstractAction() {
                 @Override
                 public void actionPerformed(java.awt.event.ActionEvent e) {
                     if (chatInput.isFocusOwner()) {
-                        return;  // Skip if the chat box is focused
+                        return;  // Skip if the chat box is focused, avoid playing in typing
                     }
                     keyboardManager.handleKeyPress(new KeyEvent(frame, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, keyCode, (char) keyCode));
                 }
             });
         }
     
-        // button behaviors
+        // button behaviors!!!
+
         recordBtn.addActionListener(e -> {
             isRecording = true;
             rawEvents.clear();
@@ -314,7 +303,7 @@ public class PianoApp {
             recordBtn.setEnabled(false);
             stopBtn.setEnabled(true);
         });
-    
+        
         stopBtn.addActionListener(e -> {
             isRecording = false;
             recordBtn.setEnabled(true);
@@ -460,6 +449,7 @@ public class PianoApp {
     }
     
 
+    // Reset all notes, incase some communication error
 
     private static void resetAllNotes() {
         // Stop ALL tones
@@ -495,7 +485,6 @@ public class PianoApp {
             while (true) {
                 line = in.readLine();
                 if (line == null) {
-                    // disconnect and throw exception
                     throw new IOException("Server closed the connection");
                 }
     
@@ -524,7 +513,6 @@ public class PianoApp {
                     "Connection Error",
                     JOptionPane.ERROR_MESSAGE
                 );
-                // disable chat input
                 chatInput.setEditable(false);
             });
             System.out.println("Disconnected from server:  " + e.getMessage());
