@@ -4,6 +4,8 @@
 
 This project delivers a networked piano application built in Java that enables two users to play and chat in real time, record the piano session to a file, and replay it with accurate timing. The implementation addresses four core topics from the course requirements—thread concurrency with synchronization, file I/O, networking via sockets, and GUI graphics—in distinct modules to ensure clarity, modularity, and maintainability.
 
+The project repository can be accessed at [Github](https://github.com/zhaodong-liu/Java-Cooperating-Piano.git)
+
 ### 2. Introduction
 
 This project application architecture comprises the following components:
@@ -49,12 +51,6 @@ Shared state (e.g. activePlaybackNotes) stored in ConcurrentHashMap and Concurre
 Timers and playback timestamps are also tracked to account for pause/resume delays safely across threads.
 
 
-
-<br>
-
-<br>
-
-<br>
 
 <br>
 
